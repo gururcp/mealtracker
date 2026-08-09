@@ -56,9 +56,17 @@ BEGIN
         )
     END;
 
+    IF v_version_id IS NULL THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+
     SELECT status INTO v_status FROM plan_versions WHERE id = v_version_id;
 
-    IF v_status IS DISTINCT FROM 'draft' THEN
+    IF v_status IS NULL THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+
+    IF v_status <> 'draft' THEN
         RAISE EXCEPTION
             'Cannot modify % on a % plan version. Clone to a new draft first.',
             TG_TABLE_NAME, v_status;

@@ -737,9 +737,20 @@ BEGIN
         )
     END;
 
+    -- Parent lookup returned NULL → parent is being cascaded/deleted.
+    -- The parent's own trigger already authorized this; allow it.
+    IF v_version_id IS NULL THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+
     SELECT status INTO v_status FROM plan_versions WHERE id = v_version_id;
 
-    IF v_status IS DISTINCT FROM 'draft' THEN
+    -- Plan version itself is being deleted — allow child cascade.
+    IF v_status IS NULL THEN
+        RETURN COALESCE(NEW, OLD);
+    END IF;
+
+    IF v_status <> 'draft' THEN
         RAISE EXCEPTION
             'Cannot modify % on a % plan version. Clone to a new draft first.',
             TG_TABLE_NAME, v_status;
