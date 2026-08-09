@@ -586,6 +586,39 @@ INSERT INTO foods (en_name, hi_name, category, per_100_unit, cal, protein_g, car
 VALUES ('Green Chilli (Mirchi)', 'मिर्च', 'vegetable', 'g', 40, 2.00, 9.46, 0.20, 1.50, 1.20, 18, 25, 46, 340, 7, 0.30, 59, 242.50, 0.00, 0.69, 14.30, 0.090, 0.090, 1.240, 0.278, 23.00, 0.00, 'usda', 'FDC-168751');
 
 
+-- ---------------------------------------------------------------------------
+-- Additional foods (referenced by aliases; added post-review to satisfy FK)
+-- ---------------------------------------------------------------------------
+
+-- Bhindi (Okra), raw — IFCT 2017 ref: Ladies finger / Okra
+INSERT INTO foods (en_name, hi_name, category, per_100_unit, cal, protein_g, carbs_g, fat_g, fiber_g, iron_mg, calcium_mg, magnesium_mg, phosphorus_mg, potassium_mg, sodium_mg, zinc_mg, vit_a_ug, vit_c_mg, vit_d_ug, vit_e_mg, vit_k_ug, thiamin_mg, riboflavin_mg, niacin_mg, vit_b6_mg, folate_ug, vit_b12_ug, source, source_ref)
+VALUES ('Okra (Bhindi)', 'भिंडी', 'vegetable', 'g', 33, 1.93, 7.45, 0.19, 3.20, 0.62, 82, 57, 61, 299, 7, 0.58, 36, 23.00, 0.00, 0.27, 31.30, 0.200, 0.060, 1.000, 0.215, 60.00, 0.00, 'ifct', 'IFCT2017-V-012');
+
+-- Nimbu (Lemon), raw without peel — USDA FDC 167747
+INSERT INTO foods (en_name, hi_name, category, per_100_unit, piece_grams, cal, protein_g, carbs_g, fat_g, fiber_g, iron_mg, calcium_mg, magnesium_mg, phosphorus_mg, potassium_mg, sodium_mg, zinc_mg, vit_a_ug, vit_c_mg, vit_d_ug, vit_e_mg, vit_k_ug, thiamin_mg, riboflavin_mg, niacin_mg, vit_b6_mg, folate_ug, vit_b12_ug, source, source_ref)
+VALUES ('Lemon (Nimbu)', 'नींबू', 'fruit', 'g', 58.0, 29, 1.10, 9.32, 0.30, 2.80, 0.60, 26, 8, 16, 138, 2, 0.06, 1, 53.00, 0.00, 0.15, 0.00, 0.040, 0.020, 0.100, 0.080, 11.00, 0.00, 'usda', 'FDC-167747');
+
+-- Tomato, red, ripe, raw — USDA FDC 170457
+INSERT INTO foods (en_name, hi_name, category, per_100_unit, cal, protein_g, carbs_g, fat_g, fiber_g, iron_mg, calcium_mg, magnesium_mg, phosphorus_mg, potassium_mg, sodium_mg, zinc_mg, vit_a_ug, vit_c_mg, vit_d_ug, vit_e_mg, vit_k_ug, thiamin_mg, riboflavin_mg, niacin_mg, vit_b6_mg, folate_ug, vit_b12_ug, source, source_ref)
+VALUES ('Tomato', 'टमाटर', 'vegetable', 'g', 18, 0.88, 3.89, 0.20, 1.20, 0.27, 10, 11, 24, 237, 5, 0.17, 42, 13.70, 0.00, 0.54, 7.90, 0.037, 0.019, 0.594, 0.080, 15.00, 0.00, 'usda', 'FDC-170457');
+
+-- Dahi (Curd / Plain whole-milk yogurt) — USDA FDC 170903
+INSERT INTO foods (en_name, hi_name, category, per_100_unit, cal, protein_g, carbs_g, fat_g, fiber_g, iron_mg, calcium_mg, magnesium_mg, phosphorus_mg, potassium_mg, sodium_mg, zinc_mg, vit_a_ug, vit_c_mg, vit_d_ug, vit_e_mg, vit_k_ug, thiamin_mg, riboflavin_mg, niacin_mg, vit_b6_mg, folate_ug, vit_b12_ug, source, source_ref)
+VALUES ('Curd (Dahi)', 'दही', 'dairy', 'g', 61, 3.47, 4.66, 3.25, 0.00, 0.05, 121, 12, 95, 155, 46, 0.59, 27, 0.50, 0.10, 0.06, 0.20, 0.029, 0.142, 0.075, 0.032, 7.00, 0.37, 'usda', 'FDC-170903');
+
+-- Jeera (Cumin seed) — USDA FDC 170923
+INSERT INTO foods (en_name, hi_name, category, per_100_unit, tsp_grams, cal, protein_g, carbs_g, fat_g, fiber_g, iron_mg, calcium_mg, magnesium_mg, phosphorus_mg, potassium_mg, sodium_mg, zinc_mg, vit_a_ug, vit_c_mg, vit_d_ug, vit_e_mg, vit_k_ug, thiamin_mg, riboflavin_mg, niacin_mg, vit_b6_mg, folate_ug, vit_b12_ug, source, source_ref)
+VALUES ('Cumin seed (Jeera)', 'जीरा', 'spice', 'g', 2.1, 375, 17.81, 44.24, 22.27, 10.50, 66.36, 931, 366, 499, 1788, 168, 4.80, 64, 7.70, 0.00, 3.33, 5.40, 0.628, 0.327, 4.579, 0.435, 10.00, 0.00, 'usda', 'FDC-170923');
+
+-- Haldi (Turmeric, ground) — USDA FDC 172231
+INSERT INTO foods (en_name, hi_name, category, per_100_unit, tsp_grams, cal, protein_g, carbs_g, fat_g, fiber_g, iron_mg, calcium_mg, magnesium_mg, phosphorus_mg, potassium_mg, sodium_mg, zinc_mg, vit_a_ug, vit_c_mg, vit_d_ug, vit_e_mg, vit_k_ug, thiamin_mg, riboflavin_mg, niacin_mg, vit_b6_mg, folate_ug, vit_b12_ug, source, source_ref)
+VALUES ('Turmeric (Haldi)', 'हल्दी', 'spice', 'g', 3.0, 312, 9.68, 67.14, 3.25, 22.70, 41.42, 168, 208, 299, 2080, 27, 4.50, 0, 0.70, 0.00, 4.43, 13.40, 0.058, 0.150, 1.350, 0.107, 20.00, 0.00, 'usda', 'FDC-172231');
+
+-- Masoor dal (Red lentils, raw dry) — USDA FDC 172420 — added for V2 plan
+INSERT INTO foods (en_name, hi_name, category, per_100_unit, cal, protein_g, carbs_g, fat_g, fiber_g, iron_mg, calcium_mg, magnesium_mg, phosphorus_mg, potassium_mg, sodium_mg, zinc_mg, vit_a_ug, vit_c_mg, vit_d_ug, vit_e_mg, vit_k_ug, thiamin_mg, riboflavin_mg, niacin_mg, vit_b6_mg, folate_ug, vit_b12_ug, source, source_ref)
+VALUES ('Red Lentils (Masoor dal)', 'मसूर दाल', 'protein', 'g', 353, 25.80, 60.08, 1.06, 10.70, 6.51, 35, 47, 281, 677, 6, 3.27, 2, 4.50, 0.00, 0.49, 5.00, 0.874, 0.211, 2.605, 0.540, 479.00, 0.00, 'usda', 'FDC-172420');
+
+
 -- =============================================================================
 -- Food Aliases Seed
 -- Covers every food in this migration (and key ones from 20260808000000).
@@ -743,9 +776,9 @@ INSERT INTO food_aliases (food_id, alias_name, language) VALUES
 ((SELECT id FROM foods WHERE source_ref = 'Patanjali-AmlaJuice-label-2026'), 'amlaki juice',     'en'),
 ((SELECT id FROM foods WHERE source_ref = 'Patanjali-AmlaJuice-label-2026'), 'gooseberry juice', 'en'),
 -- Aloe Vera Juice - Patanjali
-((SELECT id FROM foods WHERE source_ref = 'Patanjali-AloeVera-label-2026'), 'aloe vera juice',   'en'),
-((SELECT id FROM foods WHERE source_ref = 'Patanjali-AloeVera-label-2026'), 'ghritkumari juice', 'en'),
-((SELECT id FROM foods WHERE source_ref = 'Patanjali-AloeVera-label-2026'), 'aloe juice',        'en'),
+((SELECT id FROM foods WHERE source_ref = 'Patanjali-AloeVeraJuice-label-2026'), 'aloe vera juice',   'en'),
+((SELECT id FROM foods WHERE source_ref = 'Patanjali-AloeVeraJuice-label-2026'), 'ghritkumari juice', 'en'),
+((SELECT id FROM foods WHERE source_ref = 'Patanjali-AloeVeraJuice-label-2026'), 'aloe juice',        'en'),
 -- Jeera / Cumin Seeds  (FDC-170923)
 ((SELECT id FROM foods WHERE source_ref = 'FDC-170923'), 'jeera',                     'en'),
 ((SELECT id FROM foods WHERE source_ref = 'FDC-170923'), 'cumin seeds',               'en'),

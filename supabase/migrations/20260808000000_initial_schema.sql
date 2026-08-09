@@ -30,8 +30,9 @@
 -- ---------------------------------------------------------------------------
 -- Extensions
 -- ---------------------------------------------------------------------------
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- gen_random_uuid() is a Postgres 13+ built-in (in pg_catalog) — no extension needed.
+-- pgcrypto reserved for potential future PIN-hash helpers; enable via Supabase
+-- Dashboard → Database → Extensions if/when we add SQL-side crypto functions.
 
 -- ---------------------------------------------------------------------------
 -- Enumerations
@@ -74,7 +75,7 @@ CREATE TYPE extraction_status AS ENUM ('pending', 'confirmed', 'rejected');
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE clinics (
-    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name        TEXT NOT NULL,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -83,7 +84,7 @@ CREATE TABLE clinics (
 -- Supabase Auth users who belong to a clinic (nutritionists, staff, owner)
 -- Not in use for V0.1 (no clinic UI yet), but schema is ready
 CREATE TABLE clinic_members (
-    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     clinic_id   UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
     user_id     UUID NOT NULL,   -- Supabase Auth user_id (auth.uid())
     role        clinic_role NOT NULL,
@@ -92,7 +93,7 @@ CREATE TABLE clinic_members (
 );
 
 CREATE TABLE households (
-    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     clinic_id               UUID REFERENCES clinics(id) ON DELETE SET NULL,  -- current primary clinic
     name                    TEXT NOT NULL,
     stripe_subscription_id  TEXT,
@@ -105,7 +106,7 @@ CREATE TABLE households (
 -- Audit trail for clinic transfers; old clinic retains read access to plans they authored
 -- (access gated at plan_versions.clinic_id, not households.clinic_id)
 CREATE TABLE household_clinic_history (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id    UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
     clinic_id       UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
     from_date       DATE NOT NULL,
@@ -115,7 +116,7 @@ CREATE TABLE household_clinic_history (
 );
 
 CREATE TABLE members (
-    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     household_id            UUID NOT NULL REFERENCES households(id) ON DELETE RESTRICT,
     name                    TEXT NOT NULL,
     dob                     DATE,
@@ -152,7 +153,7 @@ CREATE TABLE members (
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE foods (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     en_name         TEXT NOT NULL,
     hi_name         TEXT,
     category        food_category NOT NULL DEFAULT 'other',
@@ -243,7 +244,7 @@ CREATE TABLE food_nutrition_versions (
 -- Global foods in `foods` are read-only for non-super-admins.
 -- Nutritionists create overrides here; NULL override columns inherit from the global food.
 CREATE TABLE food_clinic_overrides (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     food_id         UUID NOT NULL REFERENCES foods(id) ON DELETE CASCADE,
     clinic_id       UUID NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
     -- Only the columns that differ need to be set; NULL = use global value
@@ -272,7 +273,7 @@ CREATE TABLE food_clinic_overrides (
 -- staff/nutritionist can add aliases; LLM deduplication in V0.3+ will auto-populate
 -- this table and also flag suspected duplicate food rows for admin review.
 CREATE TABLE food_aliases (
-    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     food_id     UUID NOT NULL REFERENCES foods(id) ON DELETE CASCADE,
     alias_name  TEXT NOT NULL,
     language    TEXT NOT NULL DEFAULT 'en',  -- ISO 639-1: 'en', 'hi', 'mr', 'ta', etc.
@@ -287,7 +288,7 @@ CREATE TABLE food_aliases (
 -- Distinct from unit_type enum: these are display/entry aids, not storage units.
 -- Kitchen scale users will confirm gram weights; this table provides defaults.
 CREATE TABLE serving_units (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name            TEXT NOT NULL,              -- 'katori', 'glass', 'wati', 'cup'
     food_category   food_category,              -- NULL = applies to all categories
     grams_per_unit  NUMERIC(8, 2) NOT NULL,
@@ -299,7 +300,7 @@ CREATE TABLE serving_units (
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE plan_versions (
-    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     member_id               UUID NOT NULL REFERENCES members(id) ON DELETE RESTRICT,
     -- Who authored this plan (ownership does NOT change when household changes clinic)
     clinic_id               UUID REFERENCES clinics(id) ON DELETE SET NULL,  -- NULL = family-authored
@@ -322,7 +323,7 @@ CREATE TABLE plan_versions (
 -- Allows any meal structure: 3 meals, 5 small meals, pre/post-workout, etc.
 -- Default rows (morning/lunch/dinner) are created by application code when a new plan_version is drafted.
 CREATE TABLE meal_slots (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     plan_version_id UUID NOT NULL REFERENCES plan_versions(id) ON DELETE CASCADE,
     name            TEXT NOT NULL,       -- display name: 'Morning 7–11', 'Lunch 11–2', etc.
     position        INT  NOT NULL,       -- display order
@@ -330,7 +331,7 @@ CREATE TABLE meal_slots (
 );
 
 CREATE TABLE plan_items (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     plan_version_id UUID NOT NULL REFERENCES plan_versions(id) ON DELETE CASCADE,
     meal_slot_id    UUID NOT NULL REFERENCES meal_slots(id) ON DELETE CASCADE,
     position        INT  NOT NULL,       -- display order within the meal slot
@@ -355,7 +356,7 @@ CREATE TABLE plan_items (
 -- When calculating historical nutrition, always join food_nutrition_versions
 -- on (food_id, food_content_version), NOT on foods.id directly.
 CREATE TABLE plan_item_alternates (
-    id                   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     plan_item_id         UUID NOT NULL REFERENCES plan_items(id) ON DELETE CASCADE,
     position             INT  NOT NULL,
     kind                 alternate_kind NOT NULL DEFAULT 'specific',
@@ -383,7 +384,7 @@ CREATE UNIQUE INDEX plan_item_single_default_idx
 -- Corresponds to the "VEGETABLE ALLOWED" sidebar on Vijaya's plan.
 -- Per plan_version (nutritionist can change allowed vegs when creating a new version).
 CREATE TABLE plan_allowed_vegs (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     plan_version_id UUID NOT NULL REFERENCES plan_versions(id) ON DELETE CASCADE,
     food_id         UUID NOT NULL REFERENCES foods(id) ON DELETE CASCADE,
     UNIQUE (plan_version_id, food_id)
@@ -397,7 +398,7 @@ CREATE TABLE plan_allowed_vegs (
 -- is_boolean=FALSE → numeric measurement (e.g. "drank 3.8L water", "walked 4200 steps")
 -- For range targets ("3 to 5 litres"), set target_value=3 and target_max_value=5.
 CREATE TABLE plan_habits (
-    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     plan_version_id     UUID NOT NULL REFERENCES plan_versions(id) ON DELETE CASCADE,
     position            INT  NOT NULL,
     en_label            TEXT NOT NULL,
@@ -427,7 +428,7 @@ CREATE TABLE plan_habits (
 -- log_date is computed as (NOW() AT TIME ZONE members.timezone)::DATE at write time;
 -- it is stored, not re-derived on read.
 CREATE TABLE daily_logs (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     member_id       UUID NOT NULL REFERENCES members(id)        ON DELETE RESTRICT,
     plan_version_id UUID NOT NULL REFERENCES plan_versions(id)  ON DELETE RESTRICT,
     log_date        DATE NOT NULL,
@@ -441,7 +442,7 @@ CREATE TABLE daily_logs (
 -- quantity_eaten_g: gram-level input from kitchen scale; NULL = ate as planned (no deviation recorded).
 --                   Members are expected to weigh every item; this captures actual vs. planned.
 CREATE TABLE meal_ticks (
-    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     daily_log_id        UUID NOT NULL REFERENCES daily_logs(id) ON DELETE CASCADE,
     plan_item_id        UUID NOT NULL REFERENCES plan_items(id) ON DELETE RESTRICT,
     -- For choice/open_veg items: which food was actually selected and eaten
@@ -458,7 +459,7 @@ CREATE TABLE meal_ticks (
 -- For boolean habits: done=TRUE/FALSE, value/value_unit NULL.
 -- For numeric habits: done derived from value >= target_value; value and value_unit set.
 CREATE TABLE habit_ticks (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     daily_log_id    UUID NOT NULL REFERENCES daily_logs(id)     ON DELETE CASCADE,
     plan_habit_id   UUID NOT NULL REFERENCES plan_habits(id)    ON DELETE RESTRICT,
     done            BOOL NOT NULL DEFAULT FALSE,
@@ -477,7 +478,7 @@ CREATE TABLE habit_ticks (
 -- Re-extraction: create a new row with status='pending'; the confirmed
 -- weight_reading row is preserved until explicitly superseded.
 CREATE TABLE scale_extractions (
-    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     member_id               UUID NOT NULL REFERENCES members(id) ON DELETE RESTRICT,
     source_file_url         TEXT NOT NULL,
     status                  extraction_status NOT NULL DEFAULT 'pending',
@@ -493,7 +494,7 @@ CREATE TABLE scale_extractions (
 -- should resolve to one record, not create a doubled chart point.
 -- Use ON CONFLICT (member_id, reading_date) DO UPDATE for idempotent entry.
 CREATE TABLE weight_readings (
-    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     member_id               UUID NOT NULL REFERENCES members(id) ON DELETE RESTRICT,
     reading_date            DATE NOT NULL,
     weight_kg               NUMERIC(6, 2) NOT NULL,
@@ -528,7 +529,7 @@ CREATE TABLE weight_readings (
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE audit_events (
-    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     table_name      TEXT NOT NULL,
     row_id          UUID NOT NULL,
     action          TEXT NOT NULL CHECK (action IN ('INSERT', 'UPDATE', 'DELETE')),

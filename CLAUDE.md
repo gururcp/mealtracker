@@ -9,13 +9,21 @@ Owner: Gaurav Choudhari (IBM / LightHouse).
 
 ## Session log
 
+### 2026-08-09 — Repo pushed to GitHub · migrations deployed to Supabase
+1. Git repo initialised, pushed to `github.com/gururcp/mealtracker` (public). Personal reference files (JPEGs, PDFs, `ui-design/` drafts) gitignored; identifying details in CLAUDE.md redacted.
+2. Supabase project `mealtracker` (ref `dnoinuuwkddrdhbpmukx`, region `ap-south-1`, Postgres 17) created.
+3. Migration 1 (`20260808000000_initial_schema.sql`) deployed. Fix applied during push: replaced 21 × `uuid_generate_v4()` with `gen_random_uuid()` (built-in in PG 13+, no extension schema-path issues on Supabase). `uuid-ossp` extension declaration removed; `pgcrypto` also removed from migration but easily enable-able via dashboard when needed.
+4. Migration 2 (`20260808000001_seed_food_master.sql`) deployed. Fix applied: 7 foods added inline before aliases block (bhindi, nimbu, tomato, dahi, jeera, haldi, masoor dal) with USDA/IFCT nutrition data — aliases had referenced these source_refs but the food rows were never inserted in the original migration. Also fixed a typo (`Patanjali-AloeVera-label-2026` → `Patanjali-AloeVeraJuice-label-2026`).
+5. Validated on remote: 47 foods, 142 aliases, 47 nutrition version snapshots (confirms AFTER-INSERT trigger fires correctly), 22 tables, 18 triggers, 9 enums, 30 RLS policies, 11 functions, all three RLS helpers callable.
+6. Also noted: foods table has one entry `Dabur-AmlaJuice-label-2026` — CLAUDE.md previously said sources are Patanjali-only. Not blocking, but flag for future audit.
+
 ### 2026-08-08 — Schema phase COMPLETE
 **Status: Ready for UI design. Do not re-open schema discussions unless a new product requirement surfaces.**
 
 Work completed this session:
 1. Full adversarial schema review (19-point interrogation) — all gaps identified and fixed.
 2. Migration 1 written: `20260808000000_initial_schema.sql` — complete schema (~1100 lines).
-3. Migration 2 written: `20260808000001_seed_food_master.sql` — 40 foods + ~140 aliases.
+3. Migration 2 written: `20260808000001_seed_food_master.sql` — 47 foods + 142 aliases.
 4. Codebase memory indexed + ADR written.
 5. This CLAUDE.md created.
 
@@ -30,7 +38,7 @@ Real member used as design reference (identifying details redacted — reference
 | File | Purpose | Lines |
 |------|---------|-------|
 | `supabase/migrations/20260808000000_initial_schema.sql` | Full schema: enums, tables, indexes, triggers, RLS, helper functions | ~1100 |
-| `supabase/migrations/20260808000001_seed_food_master.sql` | 40 foods (24 micronutrients each) + ~140 food aliases | ~500 |
+| `supabase/migrations/20260808000001_seed_food_master.sql` | 47 foods (24 micronutrients each) + 142 food aliases | ~540 |
 
 Reference images (physical plans from nutritionist) are stored locally and gitignored — see `.gitignore`. Not committed to the repo because they contain a real member's plan.
 
@@ -40,7 +48,7 @@ Reference images (physical plans from nutritionist) are stored locally and gitig
 
 ### Tenancy
 Clinic → Household → Member.
-Staff roles on `clinic_staff`: owner, nutritionist, staff.
+Staff roles on `clinic_members`: owner, nutritionist, staff.
 `households.billing_status`: trialing / active / past_due / canceled / paused.
 
 ### Auth (two-phase)
@@ -125,8 +133,8 @@ Stripe subscription; quantity = active_member_count. `households.billing_status`
 
 ## Food master completeness
 
-All foods appearing in both V1 (06/07/2026) and V2 (08/08/2026) physical plans are seeded.
-40 foods total. Nutrition values from:
+All foods appearing in both V1 and V2 physical plans are seeded.
+47 foods total (40 in original migration + 7 added during 2026-08-09 push to satisfy alias FKs: bhindi, nimbu, tomato, dahi, jeera, haldi, masoor dal). Nutrition values from:
 - IFCT 2017 (NIN Hyderabad) — all Indian vegetables, pulses, spices
 - USDA FoodData Central — items IFCT doesn't cover well
 - Manual (product label) — Patanjali Amla Juice, Patanjali Aloe Vera Juice
