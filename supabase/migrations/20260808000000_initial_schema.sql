@@ -717,16 +717,23 @@ RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
     v_version_id UUID;
     v_status     plan_version_status;
+    v_row        JSONB;
 BEGIN
-    -- Resolve plan_version_id depending on which table fired this trigger
+    -- Field access via to_jsonb(): PL/pgSQL resolves NEW.<col> at parse time,
+    -- not lazily inside CASE branches. Direct references like NEW.plan_item_id
+    -- would fail when the trigger fires on a table (e.g. meal_slots) that has
+    -- no such column, even though that CASE branch isn't taken. JSON extraction
+    -- is dynamic and works uniformly across all trigger tables.
+    v_row := to_jsonb(COALESCE(NEW, OLD));
+
     v_version_id := CASE TG_TABLE_NAME
-        WHEN 'meal_slots'            THEN COALESCE(NEW.plan_version_id, OLD.plan_version_id)
-        WHEN 'plan_items'            THEN COALESCE(NEW.plan_version_id, OLD.plan_version_id)
-        WHEN 'plan_habits'           THEN COALESCE(NEW.plan_version_id, OLD.plan_version_id)
-        WHEN 'plan_allowed_vegs'     THEN COALESCE(NEW.plan_version_id, OLD.plan_version_id)
+        WHEN 'meal_slots'            THEN (v_row ->> 'plan_version_id')::UUID
+        WHEN 'plan_items'            THEN (v_row ->> 'plan_version_id')::UUID
+        WHEN 'plan_habits'           THEN (v_row ->> 'plan_version_id')::UUID
+        WHEN 'plan_allowed_vegs'     THEN (v_row ->> 'plan_version_id')::UUID
         WHEN 'plan_item_alternates'  THEN (
             SELECT plan_version_id FROM plan_items
-            WHERE id = COALESCE(NEW.plan_item_id, OLD.plan_item_id)
+            WHERE id = (v_row ->> 'plan_item_id')::UUID
         )
     END;
 
