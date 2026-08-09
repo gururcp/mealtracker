@@ -114,6 +114,7 @@ export type TodayPlan = {
     firstName: string;
     timezone: string;
     latestWeightKg: number | null; // for step-burn estimate
+    latestBmrKcal: number | null;   // for TDEE / deficit projection
   };
   planVersion: {
     id: string;
@@ -201,15 +202,16 @@ export async function getTodayPlan(memberId: string): Promise<TodayPlan> {
   const firstName = (member.name ?? '').split(/\s+/)[0] || member.name || '';
   const logDate = todayInTimezone(member.timezone);
 
-  // 1b. Latest weight reading (for step-burn estimate)
+  // 1b. Latest weight reading (for step-burn estimate + BMR / TDEE)
   const { data: latestWeight } = await supabase
     .from('weight_readings')
-    .select('weight_kg')
+    .select('weight_kg, bmr_kcal')
     .eq('member_id', memberId)
     .order('reading_date', { ascending: false })
     .limit(1)
     .maybeSingle();
   const latestWeightKg = latestWeight?.weight_kg != null ? Number(latestWeight.weight_kg) : null;
+  const latestBmrKcal = latestWeight?.bmr_kcal != null ? Number(latestWeight.bmr_kcal) : null;
 
   // 2. Active plan version
   const { data: planVersion } = await supabase
@@ -221,7 +223,13 @@ export async function getTodayPlan(memberId: string): Promise<TodayPlan> {
 
   if (!planVersion) {
     return {
-      member: { id: member.id, firstName, timezone: member.timezone, latestWeightKg },
+      member: {
+        id: member.id,
+        firstName,
+        timezone: member.timezone,
+        latestWeightKg,
+        latestBmrKcal,
+      },
       planVersion: null,
       logDate,
       slots: [],
@@ -470,7 +478,13 @@ export async function getTodayPlan(memberId: string): Promise<TodayPlan> {
   }));
 
   return {
-    member: { id: member.id, firstName, timezone: member.timezone, latestWeightKg },
+    member: {
+      id: member.id,
+      firstName,
+      timezone: member.timezone,
+      latestWeightKg,
+      latestBmrKcal,
+    },
     planVersion: {
       id: planVersion.id,
       effectiveDate: planVersion.effective_date,

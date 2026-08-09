@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/session';
-import { getTodayPlan, type MealSlot } from '@/lib/plan';
+import { getTodayPlan, type MealSlot, type TodayPlan } from '@/lib/plan';
 import {
   addNutrition,
   computeItemBreakdown,
@@ -13,6 +13,7 @@ import { ItemCard } from './item-card';
 import { HabitRow } from './habit-row';
 import { SlotMarkAll } from './slot-mark-all';
 import { NutritionPanel } from './nutrition-panel';
+import { ForecastCard } from './forecast-card';
 import { logoutAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -43,6 +44,7 @@ export default async function TodayPage() {
   const dayTotals = computeDayTotals(plan.slots, plan.allowedVegs);
   const dayDefaultTotals = computeDayDefaultTotals(plan.slots, plan.allowedVegs);
   const todayLabel = formatDateBilingual(plan.logDate, plan.member.timezone);
+  const stepsToday = getStepsTodayFromHabits(plan.habits);
 
   return (
     <main className="min-h-dvh bg-background pb-16">
@@ -88,6 +90,14 @@ export default async function TodayPage() {
             toggleLabel="See day's full nutrition"
           />
         </section>
+
+        {/* Weight-loss forecast */}
+        <ForecastCard
+          consumedKcal={dayTotals.cal}
+          bmrKcal={plan.member.latestBmrKcal}
+          weightKg={plan.member.latestWeightKg}
+          stepsToday={stepsToday}
+        />
 
         {/* Meal slots */}
         {plan.slots.map((slot) => {
@@ -200,6 +210,14 @@ function computeDayDefaultTotals(slots: MealSlot[], _allowedVegs: FoodLite[]) {
     }
   }
   return total;
+}
+
+function getStepsTodayFromHabits(
+  habits: TodayPlan['habits']
+): number | null {
+  const stepsHabit = habits.find((h) => h.targetUnit === 'steps');
+  if (!stepsHabit) return null;
+  return stepsHabit.tick?.value ?? null;
 }
 
 function formatDateBilingual(iso: string, tz: string): string {
