@@ -9,6 +9,14 @@ Owner: Gaurav Choudhari (IBM / LightHouse).
 
 ## Session log
 
+### 2026-08-09 (late) — Vijaya seed applied · trigger bug fixed · MVP pivot to member portal
+1. **Pivot:** MVP is now the **member portal only** (for Vijaya). Nutritionist portal deferred until second user. Plan is seeded directly via SQL — no plan-builder UI needed yet.
+2. **Seed migration** `20260809000000_seed_vijaya_household.sql` written and applied. Content: 1 clinic (Bhupendra Goud Nutrition), 1 household (Choudhari), 1 member (Vijaya, family_admin=TRUE), 1 published plan version dated 2026-08-08 with 3 meal slots, 18 plan items (10 fixed + 8 choice, 26 alternates, 2 open_veg), 20 allowed vegs, 6 habits (2 boolean + 4 numeric), and 1 baseline weight reading (95.2 kg + full body-comp).
+3. **This seed file is gitignored** (`supabase/migrations/*_seed_*_household.sql` pattern) — it contains PII (name, DOB, height, weight, body comp) and the plaintext PIN. Stays local-only. Schema + food-master migrations remain public.
+4. **PIN choice:** plaintext for MVP (user's explicit decision to unblock speed). Column semantically stores hash; app-side compare will be plain string equality. **TODO before any second user**: swap to bcrypt (`bcryptjs` for zero native deps).
+5. **Trigger bug caught during seed apply:** `guard_plan_structure_immutable()` referenced `NEW.plan_item_id` inside a `CASE TG_TABLE_NAME` branch. PL/pgSQL resolves field access at parse time (not lazily), so the trigger firing on `meal_slots` (no such column) failed even though that branch wasn't taken. Fix: use `to_jsonb(COALESCE(NEW, OLD))` for dynamic field extraction. Applied both inline to migration 1 (for future full rebuilds) and as a separate `20260808100000_fix_immutability_trigger.sql` (for the live DB). Lesson: any polymorphic trigger function must use JSONB/hstore for cross-table field access — do not use direct `NEW.<col>` in a CASE branch.
+6. **Post-seed DB state:** 22 tables, 47 foods, 142 aliases, 1 clinic/household/member/plan_version, 3 meal_slots, 18 plan_items, 26 plan_item_alternates, 20 plan_allowed_vegs, 6 plan_habits, 1 weight_reading, 23 audit_events (proves write_audit_event trigger fires on inserts).
+
 ### 2026-08-09 — Repo pushed to GitHub · migrations deployed to Supabase
 1. Git repo initialised, pushed to `github.com/gururcp/mealtracker` (public). Personal reference files (JPEGs, PDFs, `ui-design/` drafts) gitignored; identifying details in CLAUDE.md redacted.
 2. Supabase project `mealtracker` (ref `dnoinuuwkddrdhbpmukx`, region `ap-south-1`, Postgres 17) created.
