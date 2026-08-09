@@ -594,6 +594,51 @@ export type Database = {
           },
         ]
       }
+      meal_tick_veg_selections: {
+        Row: {
+          created_at: string
+          food_content_version: number
+          food_id: string
+          grams: number
+          id: string
+          meal_tick_id: string
+          position: number
+        }
+        Insert: {
+          created_at?: string
+          food_content_version: number
+          food_id: string
+          grams: number
+          id?: string
+          meal_tick_id: string
+          position: number
+        }
+        Update: {
+          created_at?: string
+          food_content_version?: number
+          food_id?: string
+          grams?: number
+          id?: string
+          meal_tick_id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_tick_veg_selections_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_tick_veg_selections_meal_tick_id_fkey"
+            columns: ["meal_tick_id"]
+            isOneToOne: false
+            referencedRelation: "meal_ticks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meal_ticks: {
         Row: {
           chosen_food_id: string | null

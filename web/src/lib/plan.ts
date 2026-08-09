@@ -67,6 +67,12 @@ export type Ingredient = {
   food: FoodLite;
 };
 
+export type VegSelection = {
+  id: string;
+  grams: number;
+  food: FoodLite;
+};
+
 export type PlanItem = {
   id: string;
   position: number;
@@ -75,10 +81,13 @@ export type PlanItem = {
   alternates: Alternate[];
   ingredients: Ingredient[];
   tick: {
+    id: string;
     eaten: boolean;
     chosenFoodId: string | null;
     quantityEatenG: number | null;
   } | null;
+  // Only populated for items with an open_veg alternate.
+  vegSelections: VegSelection[];
 };
 
 export type MealSlot = {
@@ -285,30 +294,38 @@ export async function getTodayPlan(memberId: string): Promise<TodayPlan> {
     .eq('log_date', logDate)
     .maybeSingle();
 
-  let mealTicksById: Record<
-    string,
-    { eaten: boolean; chosen_food_id: string | null; quantity_eaten_g: number | null }
-  > = {};
+  type MealTickInfo = {
+    id: string;
+    eaten: boolean;
+    chosen_food_id: string | null;
+    quantity_eaten_g: number | null;
+  };
+  let mealTicksById: Record<string, MealTickInfo> = {};
   let habitTicksById: Record<
     string,
     { done: boolean; value: number | null; value_unit: string | null }
   > = {};
+  const vegSelectionsByPlanItem = new Map<string, VegSelection[]>();
 
   if (dailyLog?.id) {
-    const [{ data: mt }, { data: ht }] = await Promise.all([
+    const [{ data: mt, error: mtErr }, { data: ht, error: htErr }] = await Promise.all([
       supabase
         .from('meal_ticks')
-        .select('plan_item_id, eaten, chosen_food_id, quantity_eaten_g')
+        .select('id, plan_item_id, eaten, chosen_food_id, quantity_eaten_g')
         .eq('daily_log_id', dailyLog.id),
       supabase
         .from('habit_ticks')
         .select('plan_habit_id, done, value, value_unit')
         .eq('daily_log_id', dailyLog.id),
     ]);
+    if (mtErr) throw new Error(`meal_ticks: ${mtErr.message}`);
+    if (htErr) throw new Error(`habit_ticks: ${htErr.message}`);
+
     mealTicksById = Object.fromEntries(
       (mt ?? []).map((r) => [
         r.plan_item_id,
         {
+          id: r.id,
           eaten: r.eaten,
           chosen_food_id: r.chosen_food_id,
           quantity_eaten_g: r.quantity_eaten_g == null ? null : Number(r.quantity_eaten_g),
@@ -321,6 +338,36 @@ export async function getTodayPlan(memberId: string): Promise<TodayPlan> {
         { done: r.done, value: r.value == null ? null : Number(r.value), value_unit: r.value_unit },
       ])
     );
+
+    // Fetch veg selections for the open_veg meal_ticks (single batched query)
+    const tickIds = Object.values(mealTicksById).map((t) => t.id);
+    if (tickIds.length > 0) {
+      const { data: vsRows, error: vsErr } = await supabase
+        .from('meal_tick_veg_selections')
+        .select(
+          `id, meal_tick_id, grams,
+           food:foods!meal_tick_veg_selections_food_id_fkey(${FOOD_COLUMNS})`
+        )
+        .in('meal_tick_id', tickIds);
+      if (vsErr) throw new Error(`meal_tick_veg_selections: ${vsErr.message}`);
+
+      // Build reverse lookup: tick_id → plan_item_id (from our mealTicksById)
+      const planItemByTickId = new Map<string, string>();
+      for (const [planItemId, tick] of Object.entries(mealTicksById)) {
+        planItemByTickId.set(tick.id, planItemId);
+      }
+
+      for (const row of vsRows ?? []) {
+        const planItemId = planItemByTickId.get(row.meal_tick_id);
+        if (!planItemId) continue;
+        const foodRaw = Array.isArray(row.food) ? (row.food[0] ?? null) : row.food;
+        const food = toFoodLite(foodRaw as Record<string, unknown> | null);
+        if (!food) continue;
+        const list = vegSelectionsByPlanItem.get(planItemId) ?? [];
+        list.push({ id: row.id, grams: Number(row.grams), food });
+        vegSelectionsByPlanItem.set(planItemId, list);
+      }
+    }
   }
 
   // Shape response
@@ -374,11 +421,15 @@ export async function getTodayPlan(memberId: string): Promise<TodayPlan> {
       ingredients: ingsByItem.get(i.id) ?? [],
       tick: mealTicksById[i.id]
         ? {
+            id: mealTicksById[i.id].id,
             eaten: mealTicksById[i.id].eaten,
             chosenFoodId: mealTicksById[i.id].chosen_food_id,
             quantityEatenG: mealTicksById[i.id].quantity_eaten_g,
           }
         : null,
+      vegSelections: (vegSelectionsByPlanItem.get(i.id) ?? []).sort(
+        (a, b) => a.food.enName.localeCompare(b.food.enName)
+      ),
     };
     const list = itemsBySlot.get(i.meal_slot_id) ?? [];
     list.push(item);

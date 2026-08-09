@@ -3,9 +3,17 @@
 import { useState, useTransition } from 'react';
 import { Check, ChevronRight, Loader2, Pencil, Repeat, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { computeItemBreakdown, resolvePrimary, servingToGrams } from '@/lib/nutrition';
+import {
+  computeItemBreakdown,
+  computeItemNutrition,
+  isOpenVegItem,
+  resolvePrimary,
+  scaleVegSelections,
+  servingToGrams,
+} from '@/lib/nutrition';
 import type { Alternate, FoodLite, PlanItem, Unit } from '@/lib/plan';
 import { NutritionPanel } from './nutrition-panel';
+import { OpenVegSelector } from './open-veg-selector';
 import { pickAlternate, setItemQuantity, toggleMealTick } from './actions';
 
 type Props = {
@@ -14,6 +22,103 @@ type Props = {
 };
 
 export function ItemCard({ item, allowedVegs }: Props) {
+  // Route to the open_veg variant if this is a sabziyaan slot
+  if (isOpenVegItem(item)) {
+    return <OpenVegItemCard item={item} allowedVegs={allowedVegs} />;
+  }
+  return <SpecificItemCard item={item} allowedVegs={allowedVegs} />;
+}
+
+// ---------------------------------------------------------------------------
+// Open-veg item (multi-veg selector)
+// ---------------------------------------------------------------------------
+
+function OpenVegItemCard({ item, allowedVegs }: Props) {
+  const [expanded, setExpanded] = useState(false);
+
+  const openVegAlt = item.alternates.find((a) => a.kind === 'open_veg');
+  const targetGrams = openVegAlt?.quantity ?? 0;
+  const totalGrams = item.vegSelections.reduce((s, v) => s + v.grams, 0);
+  const eaten = item.tick?.eaten ?? false;
+  const nutrition = computeItemNutrition(item, allowedVegs);
+  const hasSelections = item.vegSelections.length > 0;
+
+  return (
+    <div
+      className={cn(
+        'rounded-2xl border transition-colors overflow-hidden',
+        eaten ? 'bg-emerald-50 border-emerald-200' : 'bg-card border-border'
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+        className="w-full flex items-center gap-2 px-3 py-3 text-left"
+      >
+        <span
+          className={cn(
+            'h-8 w-8 rounded-full border-2 flex items-center justify-center transition-all shrink-0',
+            eaten
+              ? 'bg-emerald-500 border-emerald-500 text-white'
+              : 'border-muted-foreground/30'
+          )}
+          aria-hidden
+        >
+          {eaten && <Check className="h-5 w-5" strokeWidth={3} />}
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-1.5 flex-wrap">
+            <span className={cn('font-medium', eaten && 'line-through opacity-70')}>
+              Sabziyaan
+            </span>
+            <span className="text-xs text-muted-foreground">सब्ज़ियाँ</span>
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            <span className="tabular-nums">
+              {Math.round(totalGrams)} / {targetGrams} g
+            </span>
+            {hasSelections && (
+              <span className="ml-2">
+                · {item.vegSelections.length} veg
+                {item.vegSelections.length > 1 ? 's' : ''}
+              </span>
+            )}
+            {item.note && <span className="ml-2">· {item.note}</span>}
+          </div>
+        </div>
+        <ChevronRight
+          className={cn(
+            'h-4 w-4 text-muted-foreground transition-transform shrink-0',
+            expanded && 'rotate-90'
+          )}
+        />
+      </button>
+
+      {/* Multi-veg selector — always visible so mom can add without expanding */}
+      <div className="px-3 pb-3">
+        <OpenVegSelector
+          planItemId={item.id}
+          targetGrams={targetGrams}
+          selections={item.vegSelections}
+          allowedVegs={allowedVegs}
+        />
+      </div>
+
+      {expanded && hasSelections && (
+        <div className="px-3 pb-3">
+          <NutritionPanel nutrition={nutrition} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Specific / choice item (single-food picker + quantity edit)
+// ---------------------------------------------------------------------------
+
+function SpecificItemCard({ item, allowedVegs }: Props) {
   const [showPicker, setShowPicker] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [editingQty, setEditingQty] = useState(false);
@@ -23,18 +128,10 @@ export function ItemCard({ item, allowedVegs }: Props) {
   const breakdown = computeItemBreakdown(primary, item.ingredients);
   const eaten = item.tick?.eaten ?? false;
 
-  // Planned quantity is always from the resolved alternate (not the tick).
   const plannedAlt = pickPlannedAlternate(item);
-  const plannedFood: FoodLite | null =
-    plannedAlt?.kind === 'specific'
-      ? plannedAlt.food
-      : plannedAlt?.kind === 'open_veg'
-      ? primary?.food ?? null
-      : null;
+  const plannedFood: FoodLite | null = plannedAlt?.food ?? null;
 
-  const hasOpenVeg = item.alternates.some((a) => a.kind === 'open_veg');
-  const hasMultipleAlts = item.alternates.length > 1 || hasOpenVeg;
-  const needsVegPick = hasOpenVeg && !item.tick?.chosenFoodId;
+  const hasMultipleAlts = item.alternates.length > 1;
 
   const handleTick = () => {
     startTransition(async () => {
@@ -43,7 +140,7 @@ export function ItemCard({ item, allowedVegs }: Props) {
     });
   };
 
-  const handlePickAlt = (foodId: string | null) => {
+  const handlePickAlt = (foodId: string) => {
     startTransition(async () => {
       await pickAlternate(item.id, foodId);
     });
@@ -58,17 +155,16 @@ export function ItemCard({ item, allowedVegs }: Props) {
       )}
     >
       <div className="flex items-stretch">
-        {/* Tick button */}
         <button
           type="button"
           onClick={handleTick}
-          disabled={pending || needsVegPick}
+          disabled={pending}
           style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
           aria-label={eaten ? 'Mark as not eaten' : 'Mark as eaten'}
           className={cn(
             'shrink-0 w-14 flex items-center justify-center transition-colors',
             'active:bg-black/5',
-            (pending || needsVegPick) && 'opacity-50'
+            pending && 'opacity-50'
           )}
         >
           <span
@@ -87,7 +183,6 @@ export function ItemCard({ item, allowedVegs }: Props) {
           </span>
         </button>
 
-        {/* Body */}
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
@@ -97,7 +192,7 @@ export function ItemCard({ item, allowedVegs }: Props) {
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-1.5 flex-wrap">
               <span className={cn('font-medium', eaten && 'line-through opacity-70')}>
-                {primary ? primary.food.enName : hasOpenVeg ? 'Pick a vegetable' : '—'}
+                {primary ? primary.food.enName : '—'}
               </span>
               {primary?.food.hiName && (
                 <span className="text-xs text-muted-foreground">{primary.food.hiName}</span>
@@ -126,7 +221,6 @@ export function ItemCard({ item, allowedVegs }: Props) {
         </button>
       </div>
 
-      {/* Action row: change alternate + edit quantity */}
       {(hasMultipleAlts || eaten) && (
         <div className="px-3 pb-3 flex items-center gap-3 flex-wrap">
           {hasMultipleAlts && (
@@ -134,21 +228,10 @@ export function ItemCard({ item, allowedVegs }: Props) {
               type="button"
               onClick={() => setShowPicker((v) => !v)}
               style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
-              className={cn(
-                'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 -ml-2 rounded',
-                needsVegPick && !showPicker
-                  ? 'text-emerald-700 bg-emerald-100'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 -ml-2 rounded text-muted-foreground hover:text-foreground"
             >
               <Repeat className="h-3.5 w-3.5" />
-              {showPicker
-                ? 'Hide options'
-                : needsVegPick
-                ? 'Pick vegetable'
-                : hasOpenVeg
-                ? 'Change vegetable'
-                : 'Change'}
+              {showPicker ? 'Hide options' : 'Change'}
             </button>
           )}
           {eaten && primary && (
@@ -168,13 +251,20 @@ export function ItemCard({ item, allowedVegs }: Props) {
 
       {showPicker && (
         <div className="px-3 pb-3">
-          <AltPicker
-            alternates={item.alternates}
-            allowedVegs={allowedVegs}
-            currentFoodId={primary?.food.id ?? null}
-            disabled={pending}
-            onPick={handlePickAlt}
-          />
+          <div className="flex flex-wrap gap-2">
+            {item.alternates
+              .filter((a): a is Alternate & { food: FoodLite } => a.kind === 'specific' && a.food != null)
+              .map((a) => (
+                <PickerChip
+                  key={a.id}
+                  label={a.food.enName}
+                  subLabel={a.food.hiName ?? undefined}
+                  selected={a.food.id === primary?.food.id}
+                  disabled={pending}
+                  onClick={() => handlePickAlt(a.food.id)}
+                />
+              ))}
+          </div>
         </div>
       )}
 
@@ -210,8 +300,6 @@ export function ItemCard({ item, allowedVegs }: Props) {
   );
 }
 
-// The "planned" alternate for the purposes of showing quantity units — always
-// the default (or single) alternate, not affected by tick state.
 function pickPlannedAlternate(item: PlanItem): Alternate | null {
   return item.alternates.find((a) => a.isDefault) ?? item.alternates[0] ?? null;
 }
@@ -226,16 +314,10 @@ function QuantityLabel({
   actualG: number | null;
 }) {
   if (!planned) return <span>—</span>;
-
   const plannedText = `${trimZeros(planned.quantity)} ${planned.unit}`;
-
-  // No actual override → show plan
   if (actualG == null) return <span className="tabular-nums">{plannedText}</span>;
-
-  // Convert planned to grams for comparison so we can show a diff.
   const plannedG =
     plannedFood != null ? servingToGrams(plannedFood, planned.quantity, planned.unit) : null;
-
   return (
     <span>
       <span className="tabular-nums font-medium text-foreground">{trimZeros(actualG)} g</span>
@@ -274,7 +356,7 @@ function QuantityEditor({
       ? food.tspGrams ?? 1
       : plannedUnit === 'tbsp'
       ? food.tbspGrams ?? 1
-      : 1; // g / ml
+      : 1;
 
   const currentInPlannedUnit =
     actualG != null && unitPerServing > 0 ? actualG / unitPerServing : plannedQuantity;
@@ -354,51 +436,6 @@ function QuantityEditor({
           <X className="h-4 w-4" />
         </button>
       )}
-    </div>
-  );
-}
-
-function AltPicker({
-  alternates,
-  allowedVegs,
-  currentFoodId,
-  disabled,
-  onPick,
-}: {
-  alternates: Alternate[];
-  allowedVegs: FoodLite[];
-  currentFoodId: string | null;
-  disabled: boolean;
-  onPick: (foodId: string | null) => void;
-}) {
-  const hasOpenVeg = alternates.some((a) => a.kind === 'open_veg');
-  const specifics = alternates.filter(
-    (a): a is Alternate & { food: FoodLite } => a.kind === 'specific' && a.food != null
-  );
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {specifics.map((a) => (
-        <PickerChip
-          key={a.id}
-          label={a.food.enName}
-          subLabel={a.food.hiName ?? undefined}
-          selected={a.food.id === currentFoodId}
-          disabled={disabled}
-          onClick={() => onPick(a.food.id)}
-        />
-      ))}
-      {hasOpenVeg &&
-        allowedVegs.map((v) => (
-          <PickerChip
-            key={v.id}
-            label={v.enName}
-            subLabel={v.hiName ?? undefined}
-            selected={v.id === currentFoodId}
-            disabled={disabled}
-            onClick={() => onPick(v.id)}
-          />
-        ))}
     </div>
   );
 }

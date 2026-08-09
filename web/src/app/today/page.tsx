@@ -4,9 +4,9 @@ import { getTodayPlan, type MealSlot } from '@/lib/plan';
 import {
   addNutrition,
   computeItemBreakdown,
+  computeItemNutrition,
   emptyNutrition,
   fmt,
-  resolvePrimary,
 } from '@/lib/nutrition';
 import type { FoodLite } from '@/lib/plan';
 import { ItemCard } from './item-card';
@@ -174,15 +174,15 @@ function SlotSummary({ slot, allowedVegs }: { slot: MealSlot; allowedVegs: FoodL
   );
 }
 
-// Day totals: eaten items only, using each item's resolved primary (respects
-// tick.chosen_food_id and tick.quantity_eaten_g) + ingredients.
+// Day totals: eaten items only. Uses computeItemNutrition which handles both
+// open_veg items (sum of veg selections) and specific/choice items (primary
+// alternate + quantity override + ingredients).
 function computeDayTotals(slots: MealSlot[], allowedVegs: FoodLite[]) {
   let total = emptyNutrition();
   for (const slot of slots) {
     for (const item of slot.items) {
       if (!item.tick?.eaten) continue;
-      const primary = resolvePrimary(item, allowedVegs);
-      total = addNutrition(total, computeItemBreakdown(primary, item.ingredients).total);
+      total = addNutrition(total, computeItemNutrition(item, allowedVegs));
     }
   }
   return total;

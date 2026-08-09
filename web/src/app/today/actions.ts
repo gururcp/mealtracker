@@ -160,6 +160,134 @@ export async function setItemQuantity(
   revalidatePath('/today');
 }
 
+// ---------------------------------------------------------------------------
+// Veg selections (multi-veg picker for open_veg items)
+// ---------------------------------------------------------------------------
+
+// Ensures a meal_tick exists for the item; returns its id.
+// If a new tick is created, seeds eaten=true (adding a selection implies eating).
+async function getOrCreateMealTick(planItemId: string): Promise<string> {
+  const { memberId, timezone, planVersionId } = await requireAuthed();
+  const logDate = todayInTimezone(timezone);
+  const dailyLogId = await getOrCreateDailyLog(memberId, planVersionId, logDate);
+
+  const supabase = getServerSupabase();
+  const { data: existing } = await supabase
+    .from('meal_ticks')
+    .select('id')
+    .eq('daily_log_id', dailyLogId)
+    .eq('plan_item_id', planItemId)
+    .maybeSingle();
+  if (existing) return existing.id;
+
+  const { data, error } = await supabase
+    .from('meal_ticks')
+    .insert({ daily_log_id: dailyLogId, plan_item_id: planItemId, eaten: true })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return data.id;
+}
+
+// Look up the current content_version for a food so selections stay pinned.
+async function getFoodContentVersion(foodId: string): Promise<number> {
+  const supabase = getServerSupabase();
+  const { data, error } = await supabase
+    .from('foods')
+    .select('content_version')
+    .eq('id', foodId)
+    .single();
+  if (error || !data) throw new Error(`Food ${foodId} not found`);
+  return data.content_version;
+}
+
+export async function addVegSelection(
+  planItemId: string,
+  foodId: string,
+  grams: number
+): Promise<void> {
+  if (!Number.isFinite(grams) || grams <= 0) return;
+  const tickId = await getOrCreateMealTick(planItemId);
+  const contentVersion = await getFoodContentVersion(foodId);
+
+  const supabase = getServerSupabase();
+
+  // Determine next position for this tick
+  const { data: existingSelections } = await supabase
+    .from('meal_tick_veg_selections')
+    .select('position, food_id')
+    .eq('meal_tick_id', tickId);
+
+  const existingForFood = (existingSelections ?? []).find((s) => s.food_id === foodId);
+  if (existingForFood) {
+    // Already present — update grams instead (idempotent add)
+    const { error } = await supabase
+      .from('meal_tick_veg_selections')
+      .update({ grams })
+      .eq('meal_tick_id', tickId)
+      .eq('food_id', foodId);
+    if (error) throw error;
+  } else {
+    const nextPos = Math.max(0, ...(existingSelections ?? []).map((s) => s.position)) + 1;
+    const { error } = await supabase.from('meal_tick_veg_selections').insert({
+      meal_tick_id: tickId,
+      food_id: foodId,
+      food_content_version: contentVersion,
+      grams,
+      position: nextPos,
+    });
+    if (error) throw error;
+  }
+
+  // Adding a selection implies eating — set eaten=true.
+  await supabase.from('meal_ticks').update({ eaten: true }).eq('id', tickId);
+
+  revalidatePath('/today');
+}
+
+export async function updateVegSelection(selectionId: string, grams: number): Promise<void> {
+  if (!Number.isFinite(grams) || grams <= 0) {
+    // Zero or negative → treat as removal
+    await removeVegSelection(selectionId);
+    return;
+  }
+  await requireAuthed();
+  const supabase = getServerSupabase();
+  const { error } = await supabase
+    .from('meal_tick_veg_selections')
+    .update({ grams })
+    .eq('id', selectionId);
+  if (error) throw error;
+  revalidatePath('/today');
+}
+
+export async function removeVegSelection(selectionId: string): Promise<void> {
+  await requireAuthed();
+  const supabase = getServerSupabase();
+
+  // Look up parent tick so we can auto-un-tick if we removed the last selection.
+  const { data: sel } = await supabase
+    .from('meal_tick_veg_selections')
+    .select('meal_tick_id')
+    .eq('id', selectionId)
+    .maybeSingle();
+
+  const { error } = await supabase.from('meal_tick_veg_selections').delete().eq('id', selectionId);
+  if (error) throw error;
+
+  if (sel?.meal_tick_id) {
+    const { count } = await supabase
+      .from('meal_tick_veg_selections')
+      .select('*', { count: 'exact', head: true })
+      .eq('meal_tick_id', sel.meal_tick_id);
+    if ((count ?? 0) === 0) {
+      await supabase.from('meal_ticks').update({ eaten: false }).eq('id', sel.meal_tick_id);
+    }
+  }
+
+  revalidatePath('/today');
+}
+
 // Mark every plan_item in the given meal slot as eaten with each item's
 // resolved default food. Skips items that need an open_veg pick — those
 // must be chosen explicitly first (nutrition would be zero otherwise).

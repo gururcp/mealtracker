@@ -1,7 +1,7 @@
 // Scaling: foods store nutrition per 100 g/ml. Convert a serving (which may be
 // in g/ml/piece/tsp/tbsp) to grams via the food's *_grams columns, then scale.
 
-import type { FoodLite, Ingredient, Nutrition, PlanItem, Unit } from './plan';
+import type { FoodLite, Ingredient, Nutrition, PlanItem, Unit, VegSelection } from './plan';
 
 // Nutrient metadata drives both the label and the % daily-value bar. Sources:
 // NIH Office of Dietary Supplements (adult female, ≥51 years matches Vijaya's
@@ -146,9 +146,9 @@ export function computeItemBreakdown(
 // - fixed items: always use the (single) default alternate.
 // - choice items: use the alternate matching tick.chosen_food_id, else default.
 // - open_veg items: if chosen_food_id is set and matches an allowedVeg, use that.
+// - open_veg with multi-selection: caller should use scaleVegSelections instead.
 // - quantityEatenG override: if set on tick, use it (in grams) via a synthesized
-//   'g' unit for the primary — ingredients are unaffected (their grams stay
-//   fixed since they're seasoning-scale, not user-varied).
+//   'g' unit for the primary.
 export function resolvePrimary(
   item: PlanItem,
   allowedVegs: FoodLite[]
@@ -174,9 +174,50 @@ export function resolvePrimary(
   }
   if (!food) return null;
 
-  // Apply quantity_eaten_g override if the user recorded actual grams.
   if (item.tick?.quantityEatenG != null) {
     return { food, quantity: item.tick.quantityEatenG, unit: 'g' };
   }
   return { food, quantity: alt.quantity, unit: alt.unit };
+}
+
+// Whether an item has an open_veg alternate — indicates it should use the
+// multi-veg selection path instead of the primary-food resolution.
+export function isOpenVegItem(item: PlanItem): boolean {
+  return item.alternates.some((a) => a.kind === 'open_veg');
+}
+
+// Sum nutrition across all veg selections for one meal_tick.
+export function scaleVegSelections(selections: VegSelection[]): Nutrition {
+  let total = emptyNutrition();
+  for (const sel of selections) {
+    total = addNutrition(total, scaleNutrition(sel.food, sel.grams, 'g'));
+  }
+  return total;
+}
+
+// Sum grams across all veg selections (used for progress-vs-target).
+export function totalVegGrams(selections: VegSelection[]): number {
+  return selections.reduce((sum, s) => sum + s.grams, 0);
+}
+
+// Item-level nutrition:
+// - open_veg with selections → sum(selections) + ingredients (rare, usually none)
+// - open_veg without selections → 0 (nothing eaten)
+// - all other items → primary (respecting quantity override) + ingredients
+export function computeItemNutrition(
+  item: PlanItem,
+  allowedVegs: FoodLite[]
+): Nutrition {
+  if (isOpenVegItem(item)) {
+    // Multi-veg: sum selections + any ingredients (ingredients are rare on
+    // open_veg items but supported for future-proofing).
+    const selTotal = scaleVegSelections(item.vegSelections);
+    let total = selTotal;
+    for (const ing of item.ingredients) {
+      total = addNutrition(total, scaleNutrition(ing.food, ing.quantity, ing.unit));
+    }
+    return total;
+  }
+  const primary = resolvePrimary(item, allowedVegs);
+  return computeItemBreakdown(primary, item.ingredients).total;
 }
