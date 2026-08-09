@@ -10,41 +10,66 @@ type Props = {
   nutrition: Nutrition;
   defaultOpen?: boolean;
   className?: string;
+  // Skip the 4 macro tiles at top — useful when macros are already shown
+  // elsewhere on the page (e.g. day-summary stat tiles).
+  hideMacros?: boolean;
+  // Custom label for the toggle button (e.g. "See full day nutrition").
+  toggleLabel?: string;
 };
 
 const MACROS: NutrientMeta[] = NUTRIENTS.filter((n) => n.group === 'macro');
 const MINERALS: NutrientMeta[] = NUTRIENTS.filter((n) => n.group === 'mineral');
 const VITAMINS: NutrientMeta[] = NUTRIENTS.filter((n) => n.group === 'vitamin');
 
-export function NutritionPanel({ nutrition, defaultOpen = false, className }: Props) {
+export function NutritionPanel({
+  nutrition,
+  defaultOpen = false,
+  className,
+  hideMacros = false,
+  toggleLabel,
+}: Props) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
     <div className={cn('rounded-2xl bg-muted/30 border overflow-hidden', className)}>
-      {/* Macros are always visible */}
-      <div className="p-3 grid grid-cols-4 gap-2">
-        {MACROS.slice(0, 4).map((m) => (
-          <MacroTile key={m.key} meta={m} value={nutrition[m.key]} />
-        ))}
-      </div>
+      {!hideMacros && (
+        <>
+          {/* Macros always visible */}
+          <div className="p-3 grid grid-cols-4 gap-2">
+            {MACROS.slice(0, 4).map((m) => (
+              <MacroTile key={m.key} meta={m} value={nutrition[m.key]} />
+            ))}
+          </div>
 
-      {/* Fiber gets its own bar since it has a DV */}
-      <div className="px-3 pb-3">
-        <BarRow meta={MACROS.find((m) => m.key === 'fiber_g')!} value={nutrition.fiber_g} />
-      </div>
+          {/* Fiber gets its own bar since it has a DV */}
+          <div className="px-3 pb-3">
+            <BarRow meta={MACROS.find((m) => m.key === 'fiber_g')!} value={nutrition.fiber_g} />
+          </div>
+        </>
+      )}
+
+      {/* When macros are hidden, still show the fiber bar (useful DV bar) */}
+      {hideMacros && (
+        <div className="p-3">
+          <BarRow meta={MACROS.find((m) => m.key === 'fiber_g')!} value={nutrition.fiber_g} />
+        </div>
+      )}
 
       {/* Toggle for micronutrients */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
-        className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border-t transition-colors"
+        className={cn(
+          'w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors',
+          !hideMacros && 'border-t'
+        )}
       >
         <ChevronDown
           className={cn('h-4 w-4 transition-transform', open && 'rotate-180')}
           strokeWidth={2}
         />
-        {open ? 'Hide' : 'See full nutrition'}
+        {open ? 'Hide' : toggleLabel ?? 'See full nutrition'}
       </button>
 
       {open && (

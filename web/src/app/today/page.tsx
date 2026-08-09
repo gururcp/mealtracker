@@ -12,6 +12,7 @@ import type { FoodLite } from '@/lib/plan';
 import { ItemCard } from './item-card';
 import { HabitRow } from './habit-row';
 import { SlotMarkAll } from './slot-mark-all';
+import { NutritionPanel } from './nutrition-panel';
 import { logoutAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -81,6 +82,11 @@ export default async function TodayPage() {
             <Stat label="Carbs" now={dayTotals.carbs_g} target={dayDefaultTotals.carbs_g} unit="g" />
             <Stat label="Fat" now={dayTotals.fat_g} target={dayDefaultTotals.fat_g} unit="g" />
           </div>
+          <NutritionPanel
+            nutrition={dayTotals}
+            hideMacros
+            toggleLabel="See day's full nutrition"
+          />
         </section>
 
         {/* Meal slots */}
