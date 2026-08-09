@@ -9,10 +9,10 @@
 ui-design/
 
 # --- User-specific seed migrations (contain PII + PINs) ---
-# Any migration that seeds a real member's household stays local-only.
-# Public schema/food-master migrations are fine to commit.
-supabase/migrations/*_seed_vijaya_household.sql
+# Any migration that seeds a real member's household or references them by name
+# stays local-only. Public schema/food-master migrations are fine to commit.
 supabase/migrations/*_seed_*_household.sql
+supabase/migrations/*vijaya*.sql
 
 # --- Environment / secrets ---
 .env

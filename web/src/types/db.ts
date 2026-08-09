@@ -839,6 +839,57 @@ export type Database = {
           },
         ]
       }
+      plan_item_ingredients: {
+        Row: {
+          created_at: string
+          food_content_version: number
+          food_id: string
+          id: string
+          note: string | null
+          plan_item_id: string
+          position: number
+          quantity: number
+          unit: Database["public"]["Enums"]["unit_type"]
+        }
+        Insert: {
+          created_at?: string
+          food_content_version: number
+          food_id: string
+          id?: string
+          note?: string | null
+          plan_item_id: string
+          position: number
+          quantity: number
+          unit?: Database["public"]["Enums"]["unit_type"]
+        }
+        Update: {
+          created_at?: string
+          food_content_version?: number
+          food_id?: string
+          id?: string
+          note?: string | null
+          plan_item_id?: string
+          position?: number
+          quantity?: number
+          unit?: Database["public"]["Enums"]["unit_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_item_ingredients_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_item_ingredients_plan_item_id_fkey"
+            columns: ["plan_item_id"]
+            isOneToOne: false
+            referencedRelation: "plan_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_items: {
         Row: {
           id: string

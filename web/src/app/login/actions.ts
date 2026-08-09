@@ -15,8 +15,8 @@ export async function loginWithPin(
 ): Promise<LoginState> {
   const pin = String(formData.get('pin') ?? '').trim();
 
-  if (!/^\d{4,6}$/.test(pin)) {
-    return { error: 'PIN must be 4–6 digits' };
+  if (!/^\d{4}$/.test(pin)) {
+    return { error: 'PIN must be 4 digits' };
   }
 
   const supabase = getServerSupabase();
