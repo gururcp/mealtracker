@@ -18,6 +18,10 @@ import { logoutAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
+export const metadata = {
+  title: 'Today · आज',
+};
+
 export default async function TodayPage() {
   const session = await getSession();
   if (!session) redirect('/login');

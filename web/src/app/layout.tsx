@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Instrument_Serif, Noto_Sans_Devanagari, Onest } from "next/font/google";
 import "./globals.css";
 
-// Onest — modern warm sans, used for all body / UI text.
+// Onest — modern warm sans, all body / UI text.
 const onest = Onest({
   variable: "--font-sans",
   subsets: ["latin"],
@@ -10,8 +10,7 @@ const onest = Onest({
   display: "swap",
 });
 
-// Instrument Serif — editorial display face, used only for hero numbers
-// (kcal ring center, deficit big number, weekly weight delta pill).
+// Instrument Serif — display face for hero numbers only.
 const displaySerif = Instrument_Serif({
   variable: "--font-display",
   subsets: ["latin"],
@@ -20,23 +19,57 @@ const displaySerif = Instrument_Serif({
   display: "swap",
 });
 
-// Devanagari for Hindi labels — kept as-is.
 const devanagari = Noto_Sans_Devanagari({
   variable: "--font-devanagari",
   subsets: ["devanagari"],
   display: "swap",
 });
 
+const APP_NAME = "Poshan";
+const APP_DEFAULT_TITLE = "Poshan · पोषण";
+const APP_TITLE_TEMPLATE = "%s · Poshan";
+const APP_DESCRIPTION =
+  "Daily nutrition, meal logging, and weight tracker built for nutrition clinics.";
+
 export const metadata: Metadata = {
-  title: "Meal Tracker",
-  description: "Track your daily plan, meals, and weight.",
+  applicationName: APP_NAME,
+  title: {
+    default: APP_DEFAULT_TITLE,
+    template: APP_TITLE_TEMPLATE,
+  },
+  description: APP_DESCRIPTION,
+  // Manifest is auto-linked by Next.js from app/manifest.ts, but listing here
+  // makes it explicit and lets us set additional meta.
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: APP_NAME,
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    siteName: APP_NAME,
+    title: APP_DEFAULT_TITLE,
+    description: APP_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary",
+    title: APP_DEFAULT_TITLE,
+    description: APP_DESCRIPTION,
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#FAFAF7",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#FAFAF7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0B0B0A" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
