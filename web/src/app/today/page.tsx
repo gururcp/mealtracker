@@ -14,6 +14,7 @@ import { HabitRow } from './habit-row';
 import { SlotMarkAll } from './slot-mark-all';
 import { NutritionPanel } from './nutrition-panel';
 import { ForecastCard } from './forecast-card';
+import { MealSlotSection } from './meal-slot-section';
 import { logoutAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -101,25 +102,23 @@ export default async function TodayPage() {
 
         {/* Meal slots */}
         {plan.slots.map((slot) => {
-          const slotAllDone =
-            slot.items.length > 0 && slot.items.every((i) => i.tick?.eaten);
+          const eatenCount = slot.items.filter((i) => i.tick?.eaten).length;
+          const totalCount = slot.items.length;
+          const slotAllDone = totalCount > 0 && eatenCount === totalCount;
           return (
-            <section key={slot.id} className="space-y-2">
-              <div className="flex items-baseline justify-between gap-3 px-1">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground shrink-0">
-                  {slot.name}
-                </h2>
-                <div className="flex items-center gap-2">
-                  <SlotSummary slot={slot} allowedVegs={plan.allowedVegs} />
-                  <SlotMarkAll mealSlotId={slot.id} allDone={slotAllDone} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                {slot.items.map((item) => (
-                  <ItemCard key={item.id} item={item} allowedVegs={plan.allowedVegs} />
-                ))}
-              </div>
-            </section>
+            <MealSlotSection
+              key={slot.id}
+              name={slot.name}
+              eatenCount={eatenCount}
+              totalCount={totalCount}
+              approxKcal={slotDefaultKcal(slot)}
+              initialCollapsed={slotAllDone}
+              actionSlot={<SlotMarkAll mealSlotId={slot.id} allDone={slotAllDone} />}
+            >
+              {slot.items.map((item) => (
+                <ItemCard key={item.id} item={item} allowedVegs={plan.allowedVegs} />
+              ))}
+            </MealSlotSection>
           );
         })}
 
@@ -170,7 +169,7 @@ function Stat({
   );
 }
 
-function SlotSummary({ slot, allowedVegs }: { slot: MealSlot; allowedVegs: FoodLite[] }) {
+function slotDefaultKcal(slot: MealSlot): number {
   let cal = 0;
   for (const item of slot.items) {
     // Default primary (ignoring tick state) — this is the plan target for the slot.
@@ -179,9 +178,7 @@ function SlotSummary({ slot, allowedVegs }: { slot: MealSlot; allowedVegs: FoodL
     const primary = { food: alt.food, quantity: alt.quantity, unit: alt.unit };
     cal += computeItemBreakdown(primary, item.ingredients).total.cal;
   }
-  return (
-    <span className="text-[11px] text-muted-foreground tabular-nums">~{Math.round(cal)} kcal</span>
-  );
+  return cal;
 }
 
 // Day totals: eaten items only. Uses computeItemNutrition which handles both
