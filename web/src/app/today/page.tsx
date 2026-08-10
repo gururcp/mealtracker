@@ -6,15 +6,14 @@ import {
   computeItemBreakdown,
   computeItemNutrition,
   emptyNutrition,
-  fmt,
 } from '@/lib/nutrition';
 import type { FoodLite } from '@/lib/plan';
 import { ItemCard } from './item-card';
 import { HabitRow } from './habit-row';
 import { SlotMarkAll } from './slot-mark-all';
-import { NutritionPanel } from './nutrition-panel';
 import { ForecastCard } from './forecast-card';
 import { MealSlotSection } from './meal-slot-section';
+import { DailySummary } from './daily-summary';
 import { logoutAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -50,18 +49,20 @@ export default async function TodayPage() {
   return (
     <main className="min-h-dvh bg-background pb-16">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-10 bg-background/70 backdrop-blur-md border-b border-border/50">
+        <div className="max-w-md mx-auto px-5 py-3.5 flex items-center justify-between">
           <div>
-            <p className="text-[11px] text-muted-foreground">नमस्ते 🙏</p>
-            <h1 className="text-lg font-semibold leading-tight">{plan.member.firstName}</h1>
+            <p className="text-[11px] text-muted-foreground tracking-wide">नमस्ते 🙏</p>
+            <h1 className="text-xl font-semibold leading-tight tracking-tight">
+              {plan.member.firstName}
+            </h1>
           </div>
-          <div className="text-right">
+          <div className="flex flex-col items-end gap-0.5">
             <p className="text-[11px] text-muted-foreground">{todayLabel}</p>
             <form action={logoutAction}>
               <button
                 type="submit"
-                className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-4"
+                className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
               >
                 Log out
               </button>
@@ -70,27 +71,15 @@ export default async function TodayPage() {
         </div>
       </header>
 
-      <div className="max-w-md mx-auto px-4 py-4 space-y-6">
-        {/* Daily summary */}
-        <section className="rounded-2xl border p-4 bg-card space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">Today · आज</span>
-            <span className="text-xs text-muted-foreground">
-              {eatenItems}/{totalItems} items · {doneHabits}/{totalHabits} habits
-            </span>
-          </div>
-          <div className="grid grid-cols-4 gap-2 text-center">
-            <Stat label="kcal" now={dayTotals.cal} target={dayDefaultTotals.cal} decimals={0} />
-            <Stat label="Protein" now={dayTotals.protein_g} target={dayDefaultTotals.protein_g} unit="g" />
-            <Stat label="Carbs" now={dayTotals.carbs_g} target={dayDefaultTotals.carbs_g} unit="g" />
-            <Stat label="Fat" now={dayTotals.fat_g} target={dayDefaultTotals.fat_g} unit="g" />
-          </div>
-          <NutritionPanel
-            nutrition={dayTotals}
-            hideMacros
-            toggleLabel="See day's full nutrition"
-          />
-        </section>
+      <div className="max-w-md mx-auto px-4 py-5 space-y-4">
+        <DailySummary
+          eatenItems={eatenItems}
+          totalItems={totalItems}
+          doneHabits={doneHabits}
+          totalHabits={totalHabits}
+          dayTotals={dayTotals}
+          dayDefaultTotals={dayDefaultTotals}
+        />
 
         {/* Weight-loss forecast */}
         <ForecastCard
@@ -141,31 +130,6 @@ export default async function TodayPage() {
         </p>
       </div>
     </main>
-  );
-}
-
-function Stat({
-  label,
-  now,
-  target,
-  unit,
-  decimals = 1,
-}: {
-  label: string;
-  now: number;
-  target: number;
-  unit?: string;
-  decimals?: number;
-}) {
-  return (
-    <div className="space-y-0.5">
-      <p className="text-lg font-semibold tabular-nums leading-none">{fmt(now, decimals)}</p>
-      <p className="text-[10px] text-muted-foreground leading-none">
-        / {fmt(target, decimals)}
-        {unit ? ` ${unit}` : ''}
-      </p>
-      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">{label}</p>
-    </div>
   );
 }
 

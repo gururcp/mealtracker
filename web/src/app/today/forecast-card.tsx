@@ -1,10 +1,9 @@
 import { ArrowDown, ArrowUp, Flame, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// Constants
-const SEDENTARY_ACTIVITY_FACTOR = 1.2;        // BMR × factor = baseline daily burn without exercise
-const KCAL_PER_STEP_PER_KG = 0.0005;          // walking energy cost (empirical)
-const KCAL_PER_KG_BODY_FAT = 7700;            // rule-of-thumb energy content
+const SEDENTARY_ACTIVITY_FACTOR = 1.2;
+const KCAL_PER_STEP_PER_KG = 0.0005;
+const KCAL_PER_KG_BODY_FAT = 7700;
 
 type Props = {
   consumedKcal: number;
@@ -16,12 +15,14 @@ type Props = {
 export function ForecastCard({ consumedKcal, bmrKcal, weightKg, stepsToday }: Props) {
   if (bmrKcal == null || weightKg == null) {
     return (
-      <section className="rounded-2xl border p-4 bg-card">
+      <section className="rounded-3xl border bg-card p-5">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <Flame className="h-4 w-4 text-emerald-600" />
+          <span className="h-8 w-8 rounded-full bg-emerald-50 flex items-center justify-center">
+            <Flame className="h-4 w-4 text-emerald-600" />
+          </span>
           Progress forecast
         </div>
-        <p className="text-xs text-muted-foreground mt-2">
+        <p className="text-xs text-muted-foreground mt-3">
           Log a weight reading with BMR to see your daily deficit and weekly weight-change forecast.
         </p>
       </section>
@@ -34,90 +35,93 @@ export function ForecastCard({ consumedKcal, bmrKcal, weightKg, stepsToday }: Pr
       ? Math.round(stepsToday * KCAL_PER_STEP_PER_KG * weightKg)
       : 0;
   const totalBurn = sedentaryBurn + walkingBurn;
-  const net = totalBurn - consumedKcal; // positive = deficit, negative = surplus
+  const net = totalBurn - consumedKcal;
   const weeklyDeltaGrams = Math.round((net * 7 * 1000) / KCAL_PER_KG_BODY_FAT);
-  const weeklyDeltaKg = weeklyDeltaGrams / 1000;
-
   const isDeficit = net > 0;
 
   return (
-    <section className="rounded-2xl border p-4 bg-card space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Flame className="h-4 w-4 text-emerald-600" />
-          Progress forecast
+    <section className="rounded-3xl border bg-card overflow-hidden">
+      {/* Colored top strip — colour matches deficit/surplus state */}
+      <div
+        className={cn(
+          'px-5 pt-5 pb-4',
+          isDeficit
+            ? 'bg-gradient-to-b from-emerald-50/70 to-transparent'
+            : 'bg-gradient-to-b from-red-50/70 to-transparent'
+        )}
+      >
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'h-8 w-8 rounded-full flex items-center justify-center',
+                isDeficit ? 'bg-emerald-100/80' : 'bg-red-100/80'
+              )}
+            >
+              <Flame
+                className={cn('h-4 w-4', isDeficit ? 'text-emerald-600' : 'text-red-600')}
+              />
+            </span>
+            <div>
+              <p className="text-sm font-medium leading-tight">Progress forecast</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                Today's pattern
+              </p>
+            </div>
+          </div>
+          <div
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums',
+              isDeficit ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
+            )}
+          >
+            {isDeficit ? <ArrowDown className="h-3 w-3" /> : <ArrowUp className="h-3 w-3" />}
+            {formatWeightDelta(Math.abs(weeklyDeltaGrams))} / week
+          </div>
         </div>
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-          Today's pattern
-        </span>
+
+        <div className="flex items-baseline gap-1.5">
+          <span
+            className={cn(
+              'text-3xl font-semibold tabular-nums',
+              isDeficit ? 'text-emerald-700' : 'text-red-700'
+            )}
+          >
+            {isDeficit ? '−' : '+'}
+            {Math.abs(net)}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            kcal {isDeficit ? 'deficit' : 'surplus'} today
+          </span>
+        </div>
       </div>
 
-      {/* Four flow rows: In, Out(base), Out(walk), Net */}
-      <div className="space-y-1.5 text-sm">
+      {/* Flow breakdown */}
+      <div className="px-5 py-3 space-y-2 text-sm border-t">
         <FlowRow label="Eaten today" value={consumedKcal} direction="in" />
         <FlowRow
-          label="Burnt (BMR × 1.2)"
-          sub="basal + light activity"
+          label="Burnt · basal"
+          sub={`BMR ${Math.round(bmrKcal)} kcal × 1.2`}
           value={sedentaryBurn}
           direction="out"
         />
         <FlowRow
-          label="Burnt (walking)"
-          sub={stepsToday ? `${Math.round(stepsToday).toLocaleString()} steps` : 'log steps to include'}
+          label="Burnt · walking"
+          sub={
+            stepsToday && stepsToday > 0
+              ? `${Math.round(stepsToday).toLocaleString()} steps`
+              : 'log steps to include'
+          }
           value={walkingBurn}
           direction="out"
         />
-        <div className="border-t pt-2 mt-1">
-          <div className="flex items-center justify-between">
-            <span className="font-medium">
-              {isDeficit ? 'Deficit' : 'Surplus'}
-            </span>
-            <span
-              className={cn(
-                'tabular-nums font-semibold',
-                isDeficit ? 'text-emerald-700' : 'text-red-600'
-              )}
-            >
-              {isDeficit ? '−' : '+'}
-              {Math.abs(net)} kcal
-            </span>
-          </div>
-        </div>
       </div>
 
-      {/* Weekly projection */}
-      <div
-        className={cn(
-          'rounded-xl px-3 py-2.5 flex items-center gap-3',
-          isDeficit ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'
-        )}
-      >
-        {isDeficit ? (
-          <ArrowDown className="h-5 w-5 text-emerald-700 shrink-0" />
-        ) : (
-          <ArrowUp className="h-5 w-5 text-red-600 shrink-0" />
-        )}
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground leading-tight">
-            If this pattern continues 7 days
-          </p>
-          <p
-            className={cn(
-              'text-base font-semibold tabular-nums leading-tight',
-              isDeficit ? 'text-emerald-700' : 'text-red-600'
-            )}
-          >
-            {isDeficit ? '−' : '+'}
-            {formatWeightDelta(Math.abs(weeklyDeltaGrams))} / week
-          </p>
-        </div>
-      </div>
-
-      <p className="flex items-start gap-1.5 text-[10px] text-muted-foreground">
+      <p className="px-5 pb-4 flex items-start gap-1.5 text-[10px] text-muted-foreground">
         <Info className="h-3 w-3 mt-0.5 shrink-0" />
         <span>
-          Rough estimate. Tick meals + enter steps as you go — accuracy climbs as more days are
-          logged. Assumes ~7,700 kcal per kg of body fat.
+          Rough estimate. Assumes ~7,700 kcal per kg body fat. Accuracy improves once we have a
+          full week of logs.
         </span>
       </p>
     </section>
@@ -137,17 +141,23 @@ function FlowRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <div className="min-w-0">
-        <p className="text-sm truncate">{label}</p>
-        {sub && <p className="text-[10px] text-muted-foreground truncate">{sub}</p>}
+      <div className="min-w-0 flex items-center gap-2">
+        <span
+          className={cn(
+            'h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold',
+            direction === 'in'
+              ? 'bg-muted text-muted-foreground'
+              : 'bg-emerald-50 text-emerald-700'
+          )}
+        >
+          {direction === 'in' ? '+' : '−'}
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm truncate">{label}</p>
+          {sub && <p className="text-[10px] text-muted-foreground truncate">{sub}</p>}
+        </div>
       </div>
-      <span
-        className={cn(
-          'tabular-nums shrink-0 text-sm',
-          direction === 'in' ? 'text-foreground' : 'text-muted-foreground'
-        )}
-      >
-        {direction === 'in' ? '+' : '−'}
+      <span className="tabular-nums shrink-0 text-sm">
         {Math.round(value)} kcal
       </span>
     </div>
