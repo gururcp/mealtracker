@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, ChevronRight, Loader2, Pencil, Repeat, X } from 'lucide-react';
+import { Check, ChevronDown, Loader2, Pencil, Repeat, Salad, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   computeItemBreakdown,
   computeItemNutrition,
   isOpenVegItem,
   resolvePrimary,
-  scaleVegSelections,
   servingToGrams,
 } from '@/lib/nutrition';
 import type { Alternate, FoodLite, PlanItem, Unit } from '@/lib/plan';
@@ -22,11 +21,31 @@ type Props = {
 };
 
 export function ItemCard({ item, allowedVegs }: Props) {
-  // Route to the open_veg variant if this is a sabziyaan slot
   if (isOpenVegItem(item)) {
     return <OpenVegItemCard item={item} allowedVegs={allowedVegs} />;
   }
   return <SpecificItemCard item={item} allowedVegs={allowedVegs} />;
+}
+
+// ---------------------------------------------------------------------------
+// Category → subtle color accent for the food dot
+// ---------------------------------------------------------------------------
+
+const CATEGORY_STYLES: Record<string, { dot: string; bg: string }> = {
+  vegetable:  { dot: 'bg-emerald-500',  bg: 'bg-emerald-50/60' },
+  fruit:      { dot: 'bg-rose-400',     bg: 'bg-rose-50/60' },
+  protein:    { dot: 'bg-amber-500',    bg: 'bg-amber-50/60' },
+  dairy:      { dot: 'bg-sky-400',      bg: 'bg-sky-50/60' },
+  grain:      { dot: 'bg-yellow-500',   bg: 'bg-yellow-50/60' },
+  oil:        { dot: 'bg-orange-400',   bg: 'bg-orange-50/60' },
+  spice:      { dot: 'bg-red-400',      bg: 'bg-red-50/60' },
+  beverage:   { dot: 'bg-stone-500',    bg: 'bg-stone-100' },
+  supplement: { dot: 'bg-violet-400',   bg: 'bg-violet-50/60' },
+  other:      { dot: 'bg-neutral-400',  bg: 'bg-neutral-50' },
+};
+
+function categoryStyle(cat?: string) {
+  return CATEGORY_STYLES[cat ?? 'other'] ?? CATEGORY_STYLES.other;
 }
 
 // ---------------------------------------------------------------------------
@@ -38,7 +57,6 @@ function OpenVegItemCard({ item, allowedVegs }: Props) {
 
   const openVegAlt = item.alternates.find((a) => a.kind === 'open_veg');
   const targetGrams = openVegAlt?.quantity ?? 0;
-  const totalGrams = item.vegSelections.reduce((s, v) => s + v.grams, 0);
   const eaten = item.tick?.eaten ?? false;
   const nutrition = computeItemNutrition(item, allowedVegs);
   const hasSelections = item.vegSelections.length > 0;
@@ -46,57 +64,41 @@ function OpenVegItemCard({ item, allowedVegs }: Props) {
   return (
     <div
       className={cn(
-        'rounded-2xl border transition-colors overflow-hidden',
-        eaten ? 'bg-emerald-50 border-emerald-200' : 'bg-card border-border'
+        'rounded-3xl border transition-colors overflow-hidden',
+        eaten ? 'bg-emerald-50/50 border-emerald-200/70' : 'bg-card border-border'
       )}
     >
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
-        className="w-full flex items-center gap-2 px-3 py-3 text-left"
-      >
-        <span
+      <div className="px-4 pt-4 pb-3 flex items-start gap-3">
+        <div
           className={cn(
-            'h-8 w-8 rounded-full border-2 flex items-center justify-center transition-all shrink-0',
-            eaten
-              ? 'bg-emerald-500 border-emerald-500 text-white'
-              : 'border-muted-foreground/30'
+            'shrink-0 h-11 w-11 rounded-2xl flex items-center justify-center',
+            eaten ? 'bg-emerald-500 text-white' : 'bg-emerald-50 text-emerald-600'
           )}
-          aria-hidden
         >
-          {eaten && <Check className="h-5 w-5" strokeWidth={3} />}
-        </span>
+          {eaten ? (
+            <Check className="h-5 w-5" strokeWidth={2.5} />
+          ) : (
+            <Salad className="h-5 w-5" strokeWidth={1.75} />
+          )}
+        </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-1.5 flex-wrap">
-            <span className={cn('font-medium', eaten && 'line-through opacity-70')}>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <h3 className={cn('font-semibold tracking-tight', eaten && 'line-through opacity-70')}>
               Sabziyaan
-            </span>
+            </h3>
             <span className="text-xs text-muted-foreground">सब्ज़ियाँ</span>
           </div>
-          <div className="text-xs text-muted-foreground mt-0.5">
-            <span className="tabular-nums">
-              {Math.round(totalGrams)} / {targetGrams} g
-            </span>
-            {hasSelections && (
-              <span className="ml-2">
-                · {item.vegSelections.length} veg
-                {item.vegSelections.length > 1 ? 's' : ''}
-              </span>
-            )}
-            {item.note && <span className="ml-2">· {item.note}</span>}
-          </div>
-        </div>
-        <ChevronRight
-          className={cn(
-            'h-4 w-4 text-muted-foreground transition-transform shrink-0',
-            expanded && 'rotate-90'
+          <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
+            {item.vegSelections.reduce((s, v) => s + v.grams, 0)} / {targetGrams} g
+          </p>
+          {item.note && (
+            <p className="text-[11px] text-muted-foreground/80 mt-1 line-clamp-1">{item.note}</p>
           )}
-        />
-      </button>
+        </div>
+      </div>
 
       {/* Multi-veg selector — always visible so mom can add without expanding */}
-      <div className="px-3 pb-3">
+      <div className="px-4 pb-3">
         <OpenVegSelector
           planItemId={item.id}
           targetGrams={targetGrams}
@@ -105,17 +107,32 @@ function OpenVegItemCard({ item, allowedVegs }: Props) {
         />
       </div>
 
-      {expanded && hasSelections && (
-        <div className="px-3 pb-3">
-          <NutritionPanel nutrition={nutrition} />
-        </div>
+      {hasSelections && (
+        <>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+            className="w-full px-4 py-2.5 flex items-center justify-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground border-t border-dashed border-border/70"
+          >
+            <ChevronDown
+              className={cn('h-3.5 w-3.5 transition-transform', expanded && 'rotate-180')}
+            />
+            {expanded ? 'Hide nutrition' : 'See combined nutrition'}
+          </button>
+          {expanded && (
+            <div className="px-4 pb-4">
+              <NutritionPanel nutrition={nutrition} />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Specific / choice item (single-food picker + quantity edit)
+// Specific / choice item
 // ---------------------------------------------------------------------------
 
 function SpecificItemCard({ item, allowedVegs }: Props) {
@@ -127,10 +144,10 @@ function SpecificItemCard({ item, allowedVegs }: Props) {
   const primary = resolvePrimary(item, allowedVegs);
   const breakdown = computeItemBreakdown(primary, item.ingredients);
   const eaten = item.tick?.eaten ?? false;
+  const catStyle = categoryStyle(primary?.food.category);
 
   const plannedAlt = pickPlannedAlternate(item);
   const plannedFood: FoodLite | null = plannedAlt?.food ?? null;
-
   const hasMultipleAlts = item.alternates.length > 1;
 
   const handleTick = () => {
@@ -150,11 +167,14 @@ function SpecificItemCard({ item, allowedVegs }: Props) {
   return (
     <div
       className={cn(
-        'rounded-2xl border transition-colors overflow-hidden',
-        eaten ? 'bg-emerald-50 border-emerald-200' : 'bg-card border-border'
+        'rounded-3xl border transition-all overflow-hidden',
+        eaten
+          ? 'bg-emerald-50/50 border-emerald-200/70'
+          : 'bg-card border-border shadow-[0_1px_0_rgba(0,0,0,0.02)]'
       )}
     >
       <div className="flex items-stretch">
+        {/* Tick button — big tap zone */}
         <button
           type="button"
           onClick={handleTick}
@@ -162,76 +182,94 @@ function SpecificItemCard({ item, allowedVegs }: Props) {
           style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
           aria-label={eaten ? 'Mark as not eaten' : 'Mark as eaten'}
           className={cn(
-            'shrink-0 w-14 flex items-center justify-center transition-colors',
-            'active:bg-black/5',
+            'shrink-0 pl-4 pr-3 flex items-center justify-center transition-colors',
+            'active:scale-95',
             pending && 'opacity-50'
           )}
         >
           <span
             className={cn(
-              'h-8 w-8 rounded-full border-2 flex items-center justify-center transition-all',
+              'h-10 w-10 rounded-2xl flex items-center justify-center transition-all',
               eaten
-                ? 'bg-emerald-500 border-emerald-500 text-white scale-105'
-                : 'border-muted-foreground/30'
+                ? 'bg-emerald-500 text-white shadow-sm'
+                : cn(catStyle.bg, 'border border-border')
             )}
           >
             {pending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : eaten ? (
-              <Check className="h-5 w-5" strokeWidth={3} />
-            ) : null}
+              <Check className="h-5 w-5" strokeWidth={2.75} />
+            ) : (
+              <span className={cn('h-2 w-2 rounded-full', catStyle.dot)} />
+            )}
           </span>
         </button>
 
+        {/* Body */}
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
           style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
-          className="flex-1 flex items-center gap-2 py-3 pr-2 text-left"
+          className="flex-1 flex items-center gap-2 py-3.5 pr-3 text-left"
         >
           <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-1.5 flex-wrap">
-              <span className={cn('font-medium', eaten && 'line-through opacity-70')}>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <h3
+                className={cn(
+                  'font-semibold text-[15px] tracking-tight leading-tight',
+                  eaten && 'line-through opacity-70'
+                )}
+              >
                 {primary ? primary.food.enName : '—'}
-              </span>
+              </h3>
               {primary?.food.hiName && (
                 <span className="text-xs text-muted-foreground">{primary.food.hiName}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground mt-0.5">
+            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
               <QuantityLabel
                 planned={plannedAlt}
                 plannedFood={plannedFood}
                 actualG={item.tick?.quantityEatenG ?? null}
               />
               {item.ingredients.length > 0 && (
-                <span className="ml-1.5 text-muted-foreground/70">
-                  + {item.ingredients.length}
+                <span className="inline-flex items-center gap-1 text-muted-foreground/70">
+                  <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
+                  +{item.ingredients.length}
                 </span>
               )}
-              {item.note && <span className="ml-2">· {item.note}</span>}
+              {breakdown.total.cal > 0 && (
+                <span className="text-[11px] text-muted-foreground/80 tabular-nums">
+                  · {Math.round(breakdown.total.cal)} kcal
+                </span>
+              )}
             </div>
+            {item.note && (
+              <p className="text-[11px] text-muted-foreground/80 mt-1 line-clamp-1">
+                {item.note}
+              </p>
+            )}
           </div>
-          <ChevronRight
+          <ChevronDown
             className={cn(
-              'h-4 w-4 text-muted-foreground transition-transform shrink-0',
-              expanded && 'rotate-90'
+              'h-4 w-4 text-muted-foreground/60 transition-transform shrink-0',
+              expanded && 'rotate-180'
             )}
           />
         </button>
       </div>
 
       {(hasMultipleAlts || eaten) && (
-        <div className="px-3 pb-3 flex items-center gap-3 flex-wrap">
+        <div className="px-4 pb-3 pt-1 flex items-center gap-2 flex-wrap">
           {hasMultipleAlts && (
             <button
               type="button"
               onClick={() => setShowPicker((v) => !v)}
               style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
-              className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 -ml-2 rounded text-muted-foreground hover:text-foreground"
+              className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border bg-background hover:bg-muted transition-colors"
             >
-              <Repeat className="h-3.5 w-3.5" />
-              {showPicker ? 'Hide options' : 'Change'}
+              <Repeat className="h-3 w-3" />
+              {showPicker ? 'Close' : 'Change'}
             </button>
           )}
           {eaten && primary && (
@@ -250,8 +288,8 @@ function SpecificItemCard({ item, allowedVegs }: Props) {
       )}
 
       {showPicker && (
-        <div className="px-3 pb-3">
-          <div className="flex flex-wrap gap-2">
+        <div className="px-4 pb-3">
+          <div className="flex flex-wrap gap-1.5">
             {item.alternates
               .filter((a): a is Alternate & { food: FoodLite } => a.kind === 'specific' && a.food != null)
               .map((a) => (
@@ -269,15 +307,15 @@ function SpecificItemCard({ item, allowedVegs }: Props) {
       )}
 
       {expanded && (
-        <div className="px-3 pb-3 space-y-2">
+        <div className="px-4 pb-4 space-y-2 border-t border-dashed border-border/50 pt-3">
           {item.ingredients.length > 0 && (
-            <div className="rounded-xl bg-muted/30 border p-3 text-xs space-y-1.5">
-              <p className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">
+            <div className="rounded-2xl bg-muted/40 p-3 text-xs space-y-1.5">
+              <p className="font-semibold text-muted-foreground text-[10px] uppercase tracking-widest">
                 Also includes
               </p>
               {breakdown.ingredients.map(({ ing }) => (
                 <div key={ing.id} className="flex justify-between gap-2">
-                  <span>
+                  <span className="truncate">
                     {ing.food.enName}
                     {ing.food.hiName && (
                       <span className="ml-1 text-muted-foreground">· {ing.food.hiName}</span>
@@ -322,9 +360,7 @@ function QuantityLabel({
     <span>
       <span className="tabular-nums font-medium text-foreground">{trimZeros(actualG)} g</span>
       {plannedG != null && actualG !== plannedG && (
-        <span className="ml-1 text-muted-foreground line-through tabular-nums">
-          {plannedText}
-        </span>
+        <span className="ml-1 text-muted-foreground line-through tabular-nums">{plannedText}</span>
       )}
     </span>
   );
@@ -391,7 +427,7 @@ function QuantityEditor({
         onClick={() => setEditing(true)}
         disabled={disabled}
         style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
-        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded"
+        className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border bg-background hover:bg-muted transition-colors"
       >
         <Pencil className="h-3 w-3" />
         {actualG != null ? 'Edit actual' : 'Log actual'}
@@ -400,7 +436,7 @@ function QuantityEditor({
   }
 
   return (
-    <div className="inline-flex items-center gap-2 text-xs">
+    <div className="inline-flex items-center gap-1.5 text-xs">
       <input
         type="number"
         inputMode="decimal"
@@ -413,15 +449,15 @@ function QuantityEditor({
           if (e.key === 'Enter') save();
           if (e.key === 'Escape') setEditing(false);
         }}
-        className="w-16 h-8 rounded-md border bg-background text-center tabular-nums"
+        className="w-14 h-7 rounded-lg border bg-background text-center tabular-nums text-xs"
       />
-      <span className="text-muted-foreground">{plannedUnit}</span>
+      <span className="text-muted-foreground text-xs">{plannedUnit}</span>
       <button
         type="button"
         onClick={save}
         disabled={pending}
         style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
-        className="h-8 px-3 rounded-md bg-foreground text-background text-xs font-medium disabled:opacity-50"
+        className="h-7 px-2.5 rounded-full bg-emerald-500 text-white text-[11px] font-medium disabled:opacity-50"
       >
         {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
       </button>
@@ -431,9 +467,9 @@ function QuantityEditor({
           onClick={reset}
           disabled={pending}
           aria-label="Reset to planned"
-          className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-muted"
+          className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-muted"
         >
-          <X className="h-4 w-4" />
+          <X className="h-3.5 w-3.5" />
         </button>
       )}
     </div>
@@ -460,9 +496,9 @@ function PickerChip({
       disabled={disabled}
       style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
       className={cn(
-        'px-3 py-1.5 rounded-full text-xs font-medium border transition-colors',
+        'px-3 py-1.5 rounded-full text-xs font-medium border transition-all',
         selected
-          ? 'bg-foreground text-background border-foreground'
+          ? 'bg-foreground text-background border-foreground shadow-sm'
           : 'bg-background hover:bg-muted border-border',
         disabled && 'opacity-50'
       )}

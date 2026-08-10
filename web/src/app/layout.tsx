@@ -1,21 +1,30 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Noto_Sans_Devanagari } from "next/font/google";
+import { Instrument_Serif, Noto_Sans_Devanagari, Onest } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Onest — modern warm sans, used for all body / UI text.
+const onest = Onest({
+  variable: "--font-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// Instrument Serif — editorial display face, used only for hero numbers
+// (kcal ring center, deficit big number, weekly weight delta pill).
+const displaySerif = Instrument_Serif({
+  variable: "--font-display",
   subsets: ["latin"],
+  weight: ["400"],
+  style: ["normal", "italic"],
+  display: "swap",
 });
 
-// Devanagari font for Hindi labels alongside English throughout the app
+// Devanagari for Hindi labels — kept as-is.
 const devanagari = Noto_Sans_Devanagari({
   variable: "--font-devanagari",
   subsets: ["devanagari"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -27,16 +36,16 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#ffffff",
+  themeColor: "#FAFAF7",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${devanagari.variable} h-full antialiased`}
+      className={`${onest.variable} ${displaySerif.variable} ${devanagari.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );
 }

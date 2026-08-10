@@ -80,10 +80,10 @@ export function ForecastCard({ consumedKcal, bmrKcal, weightKg, stepsToday }: Pr
           </div>
         </div>
 
-        <div className="flex items-baseline gap-1.5">
+        <div className="flex items-baseline gap-2">
           <span
             className={cn(
-              'text-3xl font-semibold tabular-nums',
+              'font-display text-5xl leading-none tabular-nums',
               isDeficit ? 'text-emerald-700' : 'text-red-700'
             )}
           >

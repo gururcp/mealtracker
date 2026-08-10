@@ -72,14 +72,14 @@ export function ProgressRing({
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-3">
         {children ?? (
           <>
-            <span className="text-3xl font-semibold tabular-nums leading-none">
+            <span className="font-display text-5xl leading-none tabular-nums">
               {Math.round(value)}
             </span>
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground mt-2">
               {label}
             </span>
             <span className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
-              / {Math.round(target)}
+              of {Math.round(target)}
             </span>
           </>
         )}

@@ -101,7 +101,8 @@ export default async function TodayPage() {
               eatenCount={eatenCount}
               totalCount={totalCount}
               approxKcal={slotDefaultKcal(slot)}
-              initialCollapsed={slotAllDone}
+              initialCollapsed
+              eatenKcal={slotEatenKcal(slot, plan.allowedVegs)}
               actionSlot={<SlotMarkAll mealSlotId={slot.id} allDone={slotAllDone} />}
             >
               {slot.items.map((item) => (
@@ -141,6 +142,15 @@ function slotDefaultKcal(slot: MealSlot): number {
     if (!alt?.food) continue;
     const primary = { food: alt.food, quantity: alt.quantity, unit: alt.unit };
     cal += computeItemBreakdown(primary, item.ingredients).total.cal;
+  }
+  return cal;
+}
+
+function slotEatenKcal(slot: MealSlot, allowedVegs: FoodLite[]): number {
+  let cal = 0;
+  for (const item of slot.items) {
+    if (!item.tick?.eaten) continue;
+    cal += computeItemNutrition(item, allowedVegs).cal;
   }
   return cal;
 }
