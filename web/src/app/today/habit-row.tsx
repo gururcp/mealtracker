@@ -105,11 +105,7 @@ export function HabitRow({
                 : 'border-muted-foreground/30'
             )}
           >
-            {pending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : done ? (
-              <Check className="h-5 w-5" strokeWidth={3} />
-            ) : null}
+            {done && <Check className="h-5 w-5" strokeWidth={3} />}
           </button>
         ) : (
           <div className="flex items-center gap-1 shrink-0">

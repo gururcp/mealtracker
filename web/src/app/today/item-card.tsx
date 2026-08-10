@@ -201,9 +201,9 @@ function SpecificItemCard({ item, allowedVegs }: Props) {
                 : cn(catStyle.bg, 'border border-border')
             )}
           >
-            {pending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : eaten ? (
+            {/* Show optimistic state directly — no spinner during transition.
+                Disabling the button below prevents double-tap. */}
+            {eaten ? (
               <Check className="h-5 w-5" strokeWidth={2.75} />
             ) : (
               <span className={cn('h-2 w-2 rounded-full', catStyle.dot)} />
