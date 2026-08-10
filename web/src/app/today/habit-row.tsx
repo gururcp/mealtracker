@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useOptimistic, useState, useTransition } from 'react';
 import { Check, Loader2, Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Habit } from '@/lib/plan';
@@ -18,7 +18,10 @@ export function HabitRow({
     habit.tick?.value != null ? String(habit.tick.value) : ''
   );
 
-  const done = habit.tick?.done ?? false;
+  const serverDone = habit.tick?.done ?? false;
+  const [optimisticDone, setOptimisticDone] = useOptimistic(serverDone);
+  const done = optimisticDone;
+
   const isStepsHabit = habit.targetUnit === 'steps';
   const stepsValue = Number(inputValue || 0);
   // Very rough estimate: MET ≈ 3.5 for moderate walking; each step ≈ 0.75 m;
@@ -30,7 +33,8 @@ export function HabitRow({
 
   const handleToggle = () => {
     startTransition(async () => {
-      await toggleHabitBoolean(habit.id, done);
+      setOptimisticDone(!serverDone);
+      await toggleHabitBoolean(habit.id, serverDone);
     });
   };
 

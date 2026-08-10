@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useOptimistic, useState, useTransition } from 'react';
 import { Check, ChevronDown, Loader2, Pencil, Repeat, Salad, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -143,7 +143,12 @@ function SpecificItemCard({ item, allowedVegs }: Props) {
 
   const primary = resolvePrimary(item, allowedVegs);
   const breakdown = computeItemBreakdown(primary, item.ingredients);
-  const eaten = item.tick?.eaten ?? false;
+  const serverEaten = item.tick?.eaten ?? false;
+  // Optimistic tick state — flips immediately on tap without waiting for the
+  // server round-trip. Reconciles when the server response lands (item prop
+  // updates via revalidatePath and useOptimistic drops the override).
+  const [optimisticEaten, setOptimisticEaten] = useOptimistic(serverEaten);
+  const eaten = optimisticEaten;
   const catStyle = categoryStyle(primary?.food.category);
 
   const plannedAlt = pickPlannedAlternate(item);
@@ -152,8 +157,9 @@ function SpecificItemCard({ item, allowedVegs }: Props) {
 
   const handleTick = () => {
     startTransition(async () => {
-      const foodToRecord = eaten ? null : primary?.food.id ?? null;
-      await toggleMealTick(item.id, eaten, foodToRecord);
+      setOptimisticEaten(!serverEaten);
+      const foodToRecord = serverEaten ? null : primary?.food.id ?? null;
+      await toggleMealTick(item.id, serverEaten, foodToRecord);
     });
   };
 
