@@ -75,7 +75,7 @@ export function ProgressRing({
             <span className="font-display text-5xl leading-none tabular-nums">
               {Math.round(value)}
             </span>
-            <span className="text-[10px] uppercase tracking-widest text-muted-foreground mt-2">
+            <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground mt-2">
               {label}
             </span>
           </>

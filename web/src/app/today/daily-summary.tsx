@@ -29,8 +29,8 @@ export function DailySummary({
       {/* Header row */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] text-muted-foreground uppercase tracking-widest">Today</p>
-          <p className="text-sm font-medium">आज का दिन</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-widest">Today</p>
+          <p className="text-base font-medium">आज का दिन</p>
         </div>
         <div className="flex gap-1.5">
           <ProgressPill done={eatenItems} total={totalItems} label="items" />
@@ -50,8 +50,9 @@ export function DailySummary({
             colorClass="text-emerald-500"
             trackClass="text-muted"
           />
-          <p className="text-[10px] text-muted-foreground text-center leading-tight tabular-nums">
-            {Math.round(dayPlannedTotals.cal)} kcal planned today
+          <p className="text-sm text-foreground/80 text-center leading-tight tabular-nums font-medium">
+            <span className="tabular-nums">{Math.round(dayPlannedTotals.cal)}</span>{' '}
+            <span className="font-normal text-muted-foreground">kcal planned today</span>
           </p>
         </div>
         <div className="col-span-3 grid grid-cols-3 gap-2">
@@ -103,12 +104,12 @@ export function DailySummary({
 
       {/* Prominent "still to eat" line so mom never mistakes the ring for a limit */}
       {remainingItems > 0 && (
-        <p className="text-xs text-center tabular-nums px-2 py-2 rounded-xl bg-emerald-50/60 text-emerald-800 border border-emerald-100">
-          <span className="font-medium">{remainingItems} item{remainingItems === 1 ? '' : 's'} left</span>
+        <p className="text-sm text-center tabular-nums px-3 py-2.5 rounded-xl bg-emerald-50/60 text-emerald-800 border border-emerald-100">
+          <span className="font-semibold">{remainingItems} item{remainingItems === 1 ? '' : 's'} left</span>
           {remainingKcal > 0 && (
             <>
               <span className="mx-1.5 text-emerald-700/60">·</span>
-              <span>{remainingKcal} kcal to go for full plan</span>
+              <span>{remainingKcal} kcal to go</span>
             </>
           )}
         </p>
@@ -128,7 +129,7 @@ function ProgressPill({ done, total, label }: { done: number; total: number; lab
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full text-[11px] font-medium px-2 py-0.5 border tabular-nums',
+        'inline-flex items-center rounded-full text-xs font-medium px-2.5 py-1 border tabular-nums',
         complete
           ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
           : 'bg-muted/60 border-transparent text-muted-foreground'
@@ -158,16 +159,16 @@ function MacroTile({
   return (
     <div
       className={cn(
-        'relative rounded-2xl border border-white/60 bg-gradient-to-br p-2.5 flex flex-col overflow-hidden',
+        'relative rounded-2xl border border-white/60 bg-gradient-to-br p-2.5 pb-4 flex flex-col overflow-hidden',
         accent
       )}
     >
-      <p className="text-[10px] uppercase tracking-wider opacity-80">{label}</p>
-      <p className="text-base font-semibold tabular-nums leading-tight mt-0.5">
+      <p className="text-[11px] font-semibold uppercase tracking-wider opacity-80">{label}</p>
+      <p className="text-lg font-semibold tabular-nums leading-tight mt-0.5">
         {fmt(now, decimals)}
-        <span className="text-[10px] opacity-70 font-normal ml-0.5">{unit}</span>
+        <span className="text-[11px] opacity-70 font-normal ml-0.5">{unit}</span>
       </p>
-      <p className="text-[10px] opacity-70 tabular-nums leading-tight">
+      <p className="text-[11px] opacity-70 tabular-nums leading-tight">
         of {fmt(target, decimals)}
       </p>
       <div className="absolute inset-x-2.5 bottom-1.5 h-0.5 rounded-full bg-white/40 overflow-hidden">

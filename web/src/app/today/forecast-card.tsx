@@ -63,8 +63,8 @@ export function ForecastCard({ consumedKcal, bmrKcal, weightKg, stepsToday }: Pr
               />
             </span>
             <div>
-              <p className="text-sm font-medium leading-tight">Progress forecast</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+              <p className="text-base font-medium leading-tight">Progress forecast</p>
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mt-0.5">
                 Today's pattern
               </p>
             </div>
@@ -117,8 +117,8 @@ export function ForecastCard({ consumedKcal, bmrKcal, weightKg, stepsToday }: Pr
         />
       </div>
 
-      <p className="px-5 pb-4 flex items-start gap-1.5 text-[10px] text-muted-foreground">
-        <Info className="h-3 w-3 mt-0.5 shrink-0" />
+      <p className="px-5 pb-4 flex items-start gap-1.5 text-[12px] text-muted-foreground">
+        <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
         <span>
           Rough estimate. Assumes ~7,700 kcal per kg body fat. Accuracy improves once we have a
           full week of logs.
@@ -154,7 +154,7 @@ function FlowRow({
         </span>
         <div className="min-w-0">
           <p className="text-sm truncate">{label}</p>
-          {sub && <p className="text-[10px] text-muted-foreground truncate">{sub}</p>}
+          {sub && <p className="text-[12px] text-muted-foreground truncate">{sub}</p>}
         </div>
       </div>
       <span className="tabular-nums shrink-0 text-sm">

@@ -35,19 +35,19 @@ export function SlotMarkAll({
         disabled={pending}
         style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
         className={cn(
-          'inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-full',
+          'inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full',
           'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100',
           pending && 'opacity-50'
         )}
       >
         {pending ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
         ) : (
-          <CheckCheck className="h-3 w-3" />
+          <CheckCheck className="h-3.5 w-3.5" />
         )}
         Mark all done
       </button>
-      {notice && <span className="text-[10px] text-muted-foreground">{notice}</span>}
+      {notice && <span className="text-xs text-muted-foreground">{notice}</span>}
     </div>
   );
 }

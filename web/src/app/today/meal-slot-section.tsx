@@ -70,11 +70,11 @@ export function MealSlotSection({
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="text-[15px] font-semibold tracking-tight leading-tight">{name}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5 tabular-nums">
+            <p className="text-base font-semibold tracking-tight leading-tight">{name}</p>
+            <p className="text-[13px] text-muted-foreground mt-0.5 tabular-nums">
               {eatenKcal > 0 ? (
                 <>
-                  <span className={cn(allDone ? 'text-emerald-700 font-medium' : 'text-foreground/70')}>
+                  <span className={cn(allDone ? 'text-emerald-700 font-medium' : 'text-foreground/80')}>
                     {Math.round(eatenKcal)}
                   </span>{' '}
                   / {Math.round(approxKcal)} kcal

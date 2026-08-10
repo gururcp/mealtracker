@@ -56,17 +56,17 @@ export default async function TodayPage() {
       <header className="sticky top-0 z-10 bg-background/70 backdrop-blur-md border-b border-border/50">
         <div className="max-w-md mx-auto px-5 py-3.5 flex items-center justify-between">
           <div>
-            <p className="text-[11px] text-muted-foreground tracking-wide">नमस्ते 🙏</p>
+            <p className="text-sm text-muted-foreground tracking-wide">नमस्ते 🙏</p>
             <h1 className="text-xl font-semibold leading-tight tracking-tight">
               {plan.member.firstName}
             </h1>
           </div>
-          <div className="flex flex-col items-end gap-0.5">
-            <p className="text-[11px] text-muted-foreground">{todayLabel}</p>
+          <div className="flex flex-col items-end gap-1">
+            <p className="text-sm text-muted-foreground">{todayLabel}</p>
             <form action={logoutAction}>
               <button
                 type="submit"
-                className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
               >
                 Log out
               </button>

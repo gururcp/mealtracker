@@ -83,16 +83,16 @@ function OpenVegItemCard({ item, allowedVegs }: Props) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2 flex-wrap">
-            <h3 className={cn('font-semibold tracking-tight', eaten && 'line-through opacity-70')}>
+            <h3 className={cn('text-base font-semibold tracking-tight', eaten && 'line-through opacity-70')}>
               Sabziyaan
             </h3>
-            <span className="text-xs text-muted-foreground">सब्ज़ियाँ</span>
+            <span className="text-sm text-muted-foreground">सब्ज़ियाँ</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
+          <p className="text-sm text-muted-foreground mt-0.5 tabular-nums">
             {item.vegSelections.reduce((s, v) => s + v.grams, 0)} / {targetGrams} g
           </p>
           {item.note && (
-            <p className="text-[11px] text-muted-foreground/80 mt-1 line-clamp-1">{item.note}</p>
+            <p className="text-[13px] text-muted-foreground/85 mt-1 line-clamp-1">{item.note}</p>
           )}
         </div>
       </div>
@@ -232,7 +232,7 @@ function SpecificItemCard({ item, allowedVegs }: Props) {
                 <span className="text-xs text-muted-foreground">{primary.food.hiName}</span>
               )}
             </div>
-            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
+            <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
               <QuantityLabel
                 planned={plannedAlt}
                 plannedFood={plannedFood}
@@ -245,13 +245,13 @@ function SpecificItemCard({ item, allowedVegs }: Props) {
                 </span>
               )}
               {breakdown.total.cal > 0 && (
-                <span className="text-[11px] text-muted-foreground/80 tabular-nums">
+                <span className="text-[13px] text-muted-foreground/85 tabular-nums">
                   · {Math.round(breakdown.total.cal)} kcal
                 </span>
               )}
             </div>
             {item.note && (
-              <p className="text-[11px] text-muted-foreground/80 mt-1 line-clamp-1">
+              <p className="text-[13px] text-muted-foreground/85 mt-1 line-clamp-1">
                 {item.note}
               </p>
             )}
@@ -272,7 +272,7 @@ function SpecificItemCard({ item, allowedVegs }: Props) {
               type="button"
               onClick={() => setShowPicker((v) => !v)}
               style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
-              className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full border bg-background hover:bg-muted transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-background hover:bg-muted transition-colors"
             >
               <Repeat className="h-3 w-3" />
               {showPicker ? 'Close' : 'Change'}
