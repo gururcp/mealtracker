@@ -9,8 +9,8 @@ type Props = {
   totalItems: number;
   doneHabits: number;
   totalHabits: number;
-  dayTotals: Nutrition;
-  dayDefaultTotals: Nutrition;
+  dayTotals: Nutrition;         // what she has eaten so far today
+  dayPlannedTotals: Nutrition;  // what the nutritionist prescribed for the whole day
 };
 
 export function DailySummary({
@@ -19,8 +19,11 @@ export function DailySummary({
   doneHabits,
   totalHabits,
   dayTotals,
-  dayDefaultTotals,
+  dayPlannedTotals,
 }: Props) {
+  const remainingItems = Math.max(0, totalItems - eatenItems);
+  const remainingKcal = Math.max(0, Math.round(dayPlannedTotals.cal - dayTotals.cal));
+
   return (
     <section className="rounded-3xl border bg-card p-4 space-y-4">
       {/* Header row */}
@@ -37,63 +40,79 @@ export function DailySummary({
 
       {/* Bento grid: ring | macro tiles */}
       <div className="grid grid-cols-5 gap-3">
-        <div className="col-span-2 flex items-center justify-center">
+        <div className="col-span-2 flex flex-col items-center justify-center gap-2">
           <ProgressRing
             value={dayTotals.cal}
-            target={dayDefaultTotals.cal}
-            label="kcal"
+            target={dayPlannedTotals.cal}
+            label="kcal eaten"
             size={148}
             strokeWidth={12}
             colorClass="text-emerald-500"
             trackClass="text-muted"
           />
+          <p className="text-[10px] text-muted-foreground text-center leading-tight tabular-nums">
+            {Math.round(dayPlannedTotals.cal)} kcal planned today
+          </p>
         </div>
         <div className="col-span-3 grid grid-cols-3 gap-2">
           <MacroTile
             label="Protein"
             now={dayTotals.protein_g}
-            target={dayDefaultTotals.protein_g}
+            target={dayPlannedTotals.protein_g}
             unit="g"
             accent="from-emerald-50 to-emerald-100/40 text-emerald-700"
           />
           <MacroTile
             label="Carbs"
             now={dayTotals.carbs_g}
-            target={dayDefaultTotals.carbs_g}
+            target={dayPlannedTotals.carbs_g}
             unit="g"
             accent="from-amber-50 to-amber-100/40 text-amber-700"
           />
           <MacroTile
             label="Fat"
             now={dayTotals.fat_g}
-            target={dayDefaultTotals.fat_g}
+            target={dayPlannedTotals.fat_g}
             unit="g"
             accent="from-sky-50 to-sky-100/40 text-sky-700"
           />
           <MacroTile
             label="Fiber"
             now={dayTotals.fiber_g}
-            target={dayDefaultTotals.fiber_g}
+            target={dayPlannedTotals.fiber_g}
             unit="g"
             accent="from-lime-50 to-lime-100/40 text-lime-700"
           />
           <MacroTile
             label="Iron"
             now={dayTotals.iron_mg}
-            target={dayDefaultTotals.iron_mg}
+            target={dayPlannedTotals.iron_mg}
             unit="mg"
             accent="from-rose-50 to-rose-100/40 text-rose-700"
           />
           <MacroTile
             label="Calcium"
             now={dayTotals.calcium_mg}
-            target={dayDefaultTotals.calcium_mg}
+            target={dayPlannedTotals.calcium_mg}
             unit="mg"
             accent="from-indigo-50 to-indigo-100/40 text-indigo-700"
             decimals={0}
           />
         </div>
       </div>
+
+      {/* Prominent "still to eat" line so mom never mistakes the ring for a limit */}
+      {remainingItems > 0 && (
+        <p className="text-xs text-center tabular-nums px-2 py-2 rounded-xl bg-emerald-50/60 text-emerald-800 border border-emerald-100">
+          <span className="font-medium">{remainingItems} item{remainingItems === 1 ? '' : 's'} left</span>
+          {remainingKcal > 0 && (
+            <>
+              <span className="mx-1.5 text-emerald-700/60">·</span>
+              <span>{remainingKcal} kcal to go for full plan</span>
+            </>
+          )}
+        </p>
+      )}
 
       <NutritionPanel
         nutrition={dayTotals}
@@ -149,9 +168,8 @@ function MacroTile({
         <span className="text-[10px] opacity-70 font-normal ml-0.5">{unit}</span>
       </p>
       <p className="text-[10px] opacity-70 tabular-nums leading-tight">
-        / {fmt(target, decimals)}
+        of {fmt(target, decimals)}
       </p>
-      {/* Subtle progress bar at the bottom of the tile */}
       <div className="absolute inset-x-2.5 bottom-1.5 h-0.5 rounded-full bg-white/40 overflow-hidden">
         <div
           className="h-full rounded-full bg-current transition-all duration-500"

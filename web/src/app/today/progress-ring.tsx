@@ -78,9 +78,6 @@ export function ProgressRing({
             <span className="text-[10px] uppercase tracking-widest text-muted-foreground mt-2">
               {label}
             </span>
-            <span className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
-              of {Math.round(target)}
-            </span>
           </>
         )}
       </div>

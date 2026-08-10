@@ -80,7 +80,7 @@ export function MealSlotSection({
                   / {Math.round(approxKcal)} kcal
                 </>
               ) : (
-                <>~{Math.round(approxKcal)} kcal planned</>
+                <>{Math.round(approxKcal)} kcal planned</>
               )}
             </p>
             {/* Slim progress bar under the meta line */}

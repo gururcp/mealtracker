@@ -3,9 +3,9 @@ import { getSession } from '@/lib/session';
 import { getTodayPlan, type MealSlot, type TodayPlan } from '@/lib/plan';
 import {
   addNutrition,
-  computeItemBreakdown,
   computeItemNutrition,
   emptyNutrition,
+  plannedItemNutrition,
 } from '@/lib/nutrition';
 import type { FoodLite } from '@/lib/plan';
 import { ItemCard } from './item-card';
@@ -46,7 +46,7 @@ export default async function TodayPage() {
   const totalHabits = plan.habits.length;
   const doneHabits = plan.habits.filter((h) => h.tick?.done).length;
   const dayTotals = computeDayTotals(plan.slots, plan.allowedVegs);
-  const dayDefaultTotals = computeDayDefaultTotals(plan.slots, plan.allowedVegs);
+  const dayPlannedTotals = computeDayPlannedTotals(plan.slots, plan.allowedVegs);
   const todayLabel = formatDateBilingual(plan.logDate, plan.member.timezone);
   const stepsToday = getStepsTodayFromHabits(plan.habits);
 
@@ -82,7 +82,7 @@ export default async function TodayPage() {
           doneHabits={doneHabits}
           totalHabits={totalHabits}
           dayTotals={dayTotals}
-          dayDefaultTotals={dayDefaultTotals}
+          dayPlannedTotals={dayPlannedTotals}
         />
 
         {/* Weight-loss forecast */}
@@ -104,7 +104,7 @@ export default async function TodayPage() {
               name={slot.name}
               eatenCount={eatenCount}
               totalCount={totalCount}
-              approxKcal={slotDefaultKcal(slot)}
+              approxKcal={slotPlannedKcal(slot, plan.allowedVegs)}
               initialCollapsed
               eatenKcal={slotEatenKcal(slot, plan.allowedVegs)}
               actionSlot={<SlotMarkAll mealSlotId={slot.id} allDone={slotAllDone} />}
@@ -138,14 +138,10 @@ export default async function TodayPage() {
   );
 }
 
-function slotDefaultKcal(slot: MealSlot): number {
+function slotPlannedKcal(slot: MealSlot, allowedVegs: FoodLite[]): number {
   let cal = 0;
   for (const item of slot.items) {
-    // Default primary (ignoring tick state) — this is the plan target for the slot.
-    const alt = item.alternates.find((a) => a.isDefault) ?? item.alternates[0];
-    if (!alt?.food) continue;
-    const primary = { food: alt.food, quantity: alt.quantity, unit: alt.unit };
-    cal += computeItemBreakdown(primary, item.ingredients).total.cal;
+    cal += plannedItemNutrition(item, allowedVegs).cal;
   }
   return cal;
 }
@@ -173,15 +169,14 @@ function computeDayTotals(slots: MealSlot[], allowedVegs: FoodLite[]) {
   return total;
 }
 
-// Plan default totals: full plan as prescribed (every item's default alternate).
-function computeDayDefaultTotals(slots: MealSlot[], _allowedVegs: FoodLite[]) {
+// Day planned totals: what the nutritionist prescribed. Includes open_veg
+// slots using the average of allowed vegetables (since no single default veg
+// exists). Every plan_item contributes — no silent skips.
+function computeDayPlannedTotals(slots: MealSlot[], allowedVegs: FoodLite[]) {
   let total = emptyNutrition();
   for (const slot of slots) {
     for (const item of slot.items) {
-      const alt = item.alternates.find((a) => a.isDefault) ?? item.alternates[0];
-      if (!alt?.food) continue;
-      const primary = { food: alt.food, quantity: alt.quantity, unit: alt.unit };
-      total = addNutrition(total, computeItemBreakdown(primary, item.ingredients).total);
+      total = addNutrition(total, plannedItemNutrition(item, allowedVegs));
     }
   }
   return total;

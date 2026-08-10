@@ -221,3 +221,55 @@ export function computeItemNutrition(
   const primary = resolvePrimary(item, allowedVegs);
   return computeItemBreakdown(primary, item.ingredients).total;
 }
+
+// Average per-100 nutrition across a set of foods — used as the "expected"
+// value for an open_veg slot before the user has chosen specific vegetables.
+export function averageNutritionPer100(foods: FoodLite[]): Nutrition {
+  if (foods.length === 0) return emptyNutrition();
+  let sum = emptyNutrition();
+  for (const f of foods) sum = addNutrition(sum, f.nutritionPer100);
+  const avg = {} as Nutrition;
+  for (const meta of NUTRIENTS) {
+    avg[meta.key] = sum[meta.key] / foods.length;
+  }
+  return avg;
+}
+
+// Expected nutrition contribution of an open_veg slot at plan time, before
+// any specific vegs have been picked. Uses the *average* of the plan's
+// allowed vegetables scaled to the target grams. Chosen because the plan
+// says only "sabziyaan Xg from this list" — no single default veg exists.
+export function expectedOpenVegNutrition(
+  targetGrams: number,
+  allowedVegs: FoodLite[]
+): Nutrition {
+  const avgPer100 = averageNutritionPer100(allowedVegs);
+  const factor = targetGrams / 100;
+  const out = {} as Nutrition;
+  for (const meta of NUTRIENTS) {
+    out[meta.key] = avgPer100[meta.key] * factor;
+  }
+  return out;
+}
+
+// Plan-time (not eaten-yet) nutrition for a single item. Used for day + slot
+// planned totals. Handles open_veg via expectedOpenVegNutrition; everything
+// else via the default alternate + ingredients.
+export function plannedItemNutrition(
+  item: PlanItem,
+  allowedVegs: FoodLite[]
+): Nutrition {
+  if (isOpenVegItem(item)) {
+    const openVegAlt = item.alternates.find((a) => a.kind === 'open_veg');
+    const targetGrams = openVegAlt?.quantity ?? 0;
+    let total = expectedOpenVegNutrition(targetGrams, allowedVegs);
+    for (const ing of item.ingredients) {
+      total = addNutrition(total, scaleNutrition(ing.food, ing.quantity, ing.unit));
+    }
+    return total;
+  }
+  const alt = item.alternates.find((a) => a.isDefault) ?? item.alternates[0];
+  if (!alt?.food) return emptyNutrition();
+  const primary = { food: alt.food, quantity: alt.quantity, unit: alt.unit };
+  return computeItemBreakdown(primary, item.ingredients).total;
+}
