@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Flame } from 'lucide-react';
+import { ArrowLeft, Flame, Scale } from 'lucide-react';
 import { getSession } from '@/lib/session';
 import { getProgress, type DaySummary } from '@/lib/progress';
 import { BarChart, type BarPoint } from './bar-chart';
@@ -138,14 +138,21 @@ export default async function ProgressPage({
             points={data.weightSeries.map((r) => ({ date: r.date, value: r.weightKg }))}
             formatY={(v) => `${v.toFixed(1)} kg`}
           />
-          {data.weightSeries.length < 2 && (
-            <p className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground">
-              <Flame className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-600" />
-              <span>
-                Log new Fitelo readings regularly and the trend line will build itself.
-              </span>
-            </p>
-          )}
+          <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+            {data.weightSeries.length < 2 && (
+              <p className="flex items-start gap-1.5 text-xs text-muted-foreground max-w-[16rem]">
+                <Flame className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-600" />
+                <span>Log Fitelo readings regularly and the line will build itself.</span>
+              </p>
+            )}
+            <Link
+              href="/weight"
+              className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+            >
+              <Scale className="h-3.5 w-3.5" />
+              Log new reading
+            </Link>
+          </div>
         </ChartCard>
       </div>
     </main>

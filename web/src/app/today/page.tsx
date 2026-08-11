@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { LineChart } from 'lucide-react';
+import { LineChart, Scale } from 'lucide-react';
 import { getSession } from '@/lib/session';
 import { getPlanForDate, type MealSlot, type TodayPlan } from '@/lib/plan';
 import {
@@ -92,10 +92,18 @@ export default async function TodayPage({
               {plan.member.firstName}
             </h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Link
+              href="/weight"
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border bg-card hover:bg-muted transition-colors"
+              aria-label="Log weight"
+            >
+              <Scale className="h-3.5 w-3.5" />
+              Weight
+            </Link>
             <Link
               href="/progress"
-              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-card hover:bg-muted transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full border bg-card hover:bg-muted transition-colors"
               aria-label="View progress"
             >
               <LineChart className="h-3.5 w-3.5" />
