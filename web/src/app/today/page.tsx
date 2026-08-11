@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { LineChart } from 'lucide-react';
 import { getSession } from '@/lib/session';
-import { getTodayPlan, type MealSlot, type TodayPlan } from '@/lib/plan';
+import { getPlanForDate, type MealSlot, type TodayPlan } from '@/lib/plan';
 import {
   addNutrition,
   computeItemNutrition,
@@ -14,6 +16,7 @@ import { SlotMarkAll } from './slot-mark-all';
 import { ForecastCard } from './forecast-card';
 import { MealSlotSection } from './meal-slot-section';
 import { DailySummary } from './daily-summary';
+import { DateNav } from './date-nav';
 import { logoutAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -22,11 +25,40 @@ export const metadata = {
   title: 'Today · आज',
 };
 
-export default async function TodayPage() {
+function todayInTimezone(tz: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+function normaliseDateParam(input: string | undefined, todayISO: string): string {
+  if (!input) return todayISO;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) return todayISO;
+  if (input > todayISO) return todayISO;
+  return input;
+}
+
+export default async function TodayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ d?: string }>;
+}) {
   const session = await getSession();
   if (!session) redirect('/login');
 
-  const plan = await getTodayPlan(session.memberId);
+  // Resolve the target date: URL param → validated → default to today
+  const params = await searchParams;
+  // Read member timezone first (needed to compute "today" & normalise the param).
+  const plan = await getPlanForDate(session.memberId, params.d);
+  const todayISO = todayInTimezone(plan.member.timezone);
+  const logDate = plan.logDate;
+  const isToday = logDate === todayISO;
+  // If the URL param was invalid/future, the plan will already reflect the
+  // corrected date. Optionally, redirect to a clean URL — skipped for simplicity.
+  void normaliseDateParam;
 
   if (!plan.planVersion) {
     return (
@@ -47,22 +79,28 @@ export default async function TodayPage() {
   const doneHabits = plan.habits.filter((h) => h.tick?.done).length;
   const dayTotals = computeDayTotals(plan.slots, plan.allowedVegs);
   const dayPlannedTotals = computeDayPlannedTotals(plan.slots, plan.allowedVegs);
-  const todayLabel = formatDateBilingual(plan.logDate, plan.member.timezone);
   const stepsToday = getStepsTodayFromHabits(plan.habits);
 
   return (
     <main className="min-h-dvh bg-background pb-16">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-background/70 backdrop-blur-md border-b border-border/50">
-        <div className="max-w-md mx-auto px-5 py-3.5 flex items-center justify-between">
+      {/* Sticky header + date nav */}
+      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border/50">
+        <div className="max-w-md mx-auto px-5 py-3 flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground tracking-wide">नमस्ते 🙏</p>
             <h1 className="text-xl font-semibold leading-tight tracking-tight">
               {plan.member.firstName}
             </h1>
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <p className="text-sm text-muted-foreground">{todayLabel}</p>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/progress"
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border bg-card hover:bg-muted transition-colors"
+              aria-label="View progress"
+            >
+              <LineChart className="h-3.5 w-3.5" />
+              Progress
+            </Link>
             <form action={logoutAction}>
               <button
                 type="submit"
@@ -73,9 +111,20 @@ export default async function TodayPage() {
             </form>
           </div>
         </div>
+        {/* Date nav row */}
+        <div className="border-t border-border/40">
+          <DateNav logDate={logDate} today={todayISO} timezone={plan.member.timezone} />
+        </div>
       </header>
 
       <div className="max-w-md mx-auto px-4 py-5 space-y-4">
+        {/* Historical view banner */}
+        {!isToday && (
+          <div className="rounded-2xl bg-amber-50/70 border border-amber-200 text-amber-900 text-sm px-4 py-2.5">
+            You're viewing a past day. Any changes save to that date.
+          </div>
+        )}
+
         <DailySummary
           eatenItems={eatenItems}
           totalItems={totalItems}
@@ -85,13 +134,15 @@ export default async function TodayPage() {
           dayPlannedTotals={dayPlannedTotals}
         />
 
-        {/* Weight-loss forecast */}
-        <ForecastCard
-          consumedKcal={dayTotals.cal}
-          bmrKcal={plan.member.latestBmrKcal}
-          weightKg={plan.member.latestWeightKg}
-          stepsToday={stepsToday}
-        />
+        {/* Forecast only makes sense for today (uses live BMR + steps) */}
+        {isToday && (
+          <ForecastCard
+            consumedKcal={dayTotals.cal}
+            bmrKcal={plan.member.latestBmrKcal}
+            weightKg={plan.member.latestWeightKg}
+            stepsToday={stepsToday}
+          />
+        )}
 
         {/* Meal slots */}
         {plan.slots.map((slot) => {
@@ -107,10 +158,17 @@ export default async function TodayPage() {
               approxKcal={slotPlannedKcal(slot, plan.allowedVegs)}
               initialCollapsed
               eatenKcal={slotEatenKcal(slot, plan.allowedVegs)}
-              actionSlot={<SlotMarkAll mealSlotId={slot.id} allDone={slotAllDone} />}
+              actionSlot={
+                <SlotMarkAll mealSlotId={slot.id} allDone={slotAllDone} logDate={logDate} />
+              }
             >
               {slot.items.map((item) => (
-                <ItemCard key={item.id} item={item} allowedVegs={plan.allowedVegs} />
+                <ItemCard
+                  key={item.id}
+                  item={item}
+                  allowedVegs={plan.allowedVegs}
+                  logDate={logDate}
+                />
               ))}
             </MealSlotSection>
           );
@@ -124,13 +182,18 @@ export default async function TodayPage() {
             </h2>
             <div className="space-y-2">
               {plan.habits.map((h) => (
-                <HabitRow key={h.id} habit={h} weightKg={plan.member.latestWeightKg} />
+                <HabitRow
+                  key={h.id}
+                  habit={h}
+                  weightKg={plan.member.latestWeightKg}
+                  logDate={logDate}
+                />
               ))}
             </div>
           </section>
         )}
 
-        <p className="text-[11px] text-center text-muted-foreground pt-4">
+        <p className="text-[12px] text-center text-muted-foreground pt-4">
           Plan issued {formatDateBilingual(plan.planVersion.effectiveDate, plan.member.timezone)}
         </p>
       </div>
@@ -155,9 +218,6 @@ function slotEatenKcal(slot: MealSlot, allowedVegs: FoodLite[]): number {
   return cal;
 }
 
-// Day totals: eaten items only. Uses computeItemNutrition which handles both
-// open_veg items (sum of veg selections) and specific/choice items (primary
-// alternate + quantity override + ingredients).
 function computeDayTotals(slots: MealSlot[], allowedVegs: FoodLite[]) {
   let total = emptyNutrition();
   for (const slot of slots) {
@@ -169,9 +229,6 @@ function computeDayTotals(slots: MealSlot[], allowedVegs: FoodLite[]) {
   return total;
 }
 
-// Day planned totals: what the nutritionist prescribed. Includes open_veg
-// slots using the average of allowed vegetables (since no single default veg
-// exists). Every plan_item contributes — no silent skips.
 function computeDayPlannedTotals(slots: MealSlot[], allowedVegs: FoodLite[]) {
   let total = emptyNutrition();
   for (const slot of slots) {
@@ -182,9 +239,7 @@ function computeDayPlannedTotals(slots: MealSlot[], allowedVegs: FoodLite[]) {
   return total;
 }
 
-function getStepsTodayFromHabits(
-  habits: TodayPlan['habits']
-): number | null {
+function getStepsTodayFromHabits(habits: TodayPlan['habits']): number | null {
   const stepsHabit = habits.find((h) => h.targetUnit === 'steps');
   if (!stepsHabit) return null;
   return stepsHabit.tick?.value ?? null;

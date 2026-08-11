@@ -8,9 +8,11 @@ import { markSlotEaten } from './actions';
 export function SlotMarkAll({
   mealSlotId,
   allDone,
+  logDate,
 }: {
   mealSlotId: string;
   allDone: boolean;
+  logDate: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [notice, setNotice] = useState<string | null>(null);
@@ -20,7 +22,7 @@ export function SlotMarkAll({
   const handleMarkAll = () => {
     setNotice(null);
     startTransition(async () => {
-      const { skippedOpenVeg } = await markSlotEaten(mealSlotId);
+      const { skippedOpenVeg } = await markSlotEaten(mealSlotId, logDate);
       if (skippedOpenVeg > 0) {
         setNotice(`${skippedOpenVeg} veg item skipped — pick a vegetable first`);
       }

@@ -18,13 +18,14 @@ import { pickAlternate, setItemQuantity, toggleMealTick } from './actions';
 type Props = {
   item: PlanItem;
   allowedVegs: FoodLite[];
+  logDate: string;
 };
 
-export function ItemCard({ item, allowedVegs }: Props) {
+export function ItemCard({ item, allowedVegs, logDate }: Props) {
   if (isOpenVegItem(item)) {
-    return <OpenVegItemCard item={item} allowedVegs={allowedVegs} />;
+    return <OpenVegItemCard item={item} allowedVegs={allowedVegs} logDate={logDate} />;
   }
-  return <SpecificItemCard item={item} allowedVegs={allowedVegs} />;
+  return <SpecificItemCard item={item} allowedVegs={allowedVegs} logDate={logDate} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -52,7 +53,7 @@ function categoryStyle(cat?: string) {
 // Open-veg item (multi-veg selector)
 // ---------------------------------------------------------------------------
 
-function OpenVegItemCard({ item, allowedVegs }: Props) {
+function OpenVegItemCard({ item, allowedVegs, logDate }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const openVegAlt = item.alternates.find((a) => a.kind === 'open_veg');
@@ -104,6 +105,7 @@ function OpenVegItemCard({ item, allowedVegs }: Props) {
           targetGrams={targetGrams}
           selections={item.vegSelections}
           allowedVegs={allowedVegs}
+          logDate={logDate}
         />
       </div>
 
@@ -135,7 +137,7 @@ function OpenVegItemCard({ item, allowedVegs }: Props) {
 // Specific / choice item
 // ---------------------------------------------------------------------------
 
-function SpecificItemCard({ item, allowedVegs }: Props) {
+function SpecificItemCard({ item, allowedVegs, logDate }: Props) {
   const [showPicker, setShowPicker] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [editingQty, setEditingQty] = useState(false);
@@ -159,13 +161,13 @@ function SpecificItemCard({ item, allowedVegs }: Props) {
     startTransition(async () => {
       setOptimisticEaten(!serverEaten);
       const foodToRecord = serverEaten ? null : primary?.food.id ?? null;
-      await toggleMealTick(item.id, serverEaten, foodToRecord);
+      await toggleMealTick(item.id, serverEaten, foodToRecord, logDate);
     });
   };
 
   const handlePickAlt = (foodId: string) => {
     startTransition(async () => {
-      await pickAlternate(item.id, foodId);
+      await pickAlternate(item.id, foodId, logDate);
     });
     setShowPicker(false);
   };
@@ -288,6 +290,7 @@ function SpecificItemCard({ item, allowedVegs }: Props) {
               editing={editingQty}
               setEditing={setEditingQty}
               disabled={pending}
+              logDate={logDate}
             />
           )}
         </div>
@@ -381,6 +384,7 @@ function QuantityEditor({
   editing,
   setEditing,
   disabled,
+  logDate,
 }: {
   itemId: string;
   food: FoodLite;
@@ -390,6 +394,7 @@ function QuantityEditor({
   editing: boolean;
   setEditing: (v: boolean) => void;
   disabled: boolean;
+  logDate: string;
 }) {
   const unitPerServing =
     plannedUnit === 'piece'
@@ -414,14 +419,14 @@ function QuantityEditor({
     }
     const grams = n * unitPerServing;
     startTransition(async () => {
-      await setItemQuantity(itemId, grams);
+      await setItemQuantity(itemId, grams, logDate);
     });
     setEditing(false);
   };
 
   const reset = () => {
     startTransition(async () => {
-      await setItemQuantity(itemId, null);
+      await setItemQuantity(itemId, null, logDate);
     });
     setEditing(false);
   };

@@ -188,7 +188,20 @@ function todayInTimezone(tz: string): string {
   return fmt.format(now); // en-CA formats as YYYY-MM-DD
 }
 
+// Public compat alias — old name still works while the codebase is migrated.
 export async function getTodayPlan(memberId: string): Promise<TodayPlan> {
+  return getPlanForDate(memberId);
+}
+
+/**
+ * Load plan + today-or-past ticks for one member on a specific date.
+ * @param memberId
+ * @param date  YYYY-MM-DD (in member's timezone). Defaults to today.
+ */
+export async function getPlanForDate(
+  memberId: string,
+  date?: string
+): Promise<TodayPlan> {
   const supabase = getServerSupabase();
 
   // 1. Member
@@ -200,7 +213,7 @@ export async function getTodayPlan(memberId: string): Promise<TodayPlan> {
   if (memberError || !member) throw new Error('Member not found');
 
   const firstName = (member.name ?? '').split(/\s+/)[0] || member.name || '';
-  const logDate = todayInTimezone(member.timezone);
+  const logDate = date ?? todayInTimezone(member.timezone);
 
   // 1b. Latest weight reading (for step-burn estimate + BMR / TDEE)
   const { data: latestWeight } = await supabase
@@ -213,13 +226,41 @@ export async function getTodayPlan(memberId: string): Promise<TodayPlan> {
   const latestWeightKg = latestWeight?.weight_kg != null ? Number(latestWeight.weight_kg) : null;
   const latestBmrKcal = latestWeight?.bmr_kcal != null ? Number(latestWeight.bmr_kcal) : null;
 
-  // 2. Active plan version
-  const { data: planVersion } = await supabase
-    .from('plan_versions')
-    .select('id, effective_date, note')
+  // 2. Resolve the plan version to display for this date:
+  //   - If a daily_log exists for the date, use its pinned plan_version_id
+  //     (guarantees historical days render against the plan that was in
+  //     effect on that day, even after supersession).
+  //   - Otherwise fall back to the currently-active plan version.
+  const { data: dailyLogForDate } = await supabase
+    .from('daily_logs')
+    .select('id, plan_version_id')
     .eq('member_id', memberId)
-    .eq('status', 'active')
+    .eq('log_date', logDate)
     .maybeSingle();
+
+  let planVersionRow: { id: string; effective_date: string; note: string | null } | null =
+    null;
+
+  if (dailyLogForDate?.plan_version_id) {
+    const { data } = await supabase
+      .from('plan_versions')
+      .select('id, effective_date, note')
+      .eq('id', dailyLogForDate.plan_version_id)
+      .maybeSingle();
+    planVersionRow = data;
+  }
+
+  if (!planVersionRow) {
+    const { data } = await supabase
+      .from('plan_versions')
+      .select('id, effective_date, note')
+      .eq('member_id', memberId)
+      .eq('status', 'active')
+      .maybeSingle();
+    planVersionRow = data;
+  }
+
+  const planVersion = planVersionRow;
 
   if (!planVersion) {
     return {

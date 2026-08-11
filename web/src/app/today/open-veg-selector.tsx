@@ -11,9 +11,16 @@ type Props = {
   targetGrams: number;
   selections: VegSelection[];
   allowedVegs: FoodLite[];
+  logDate: string;
 };
 
-export function OpenVegSelector({ planItemId, targetGrams, selections, allowedVegs }: Props) {
+export function OpenVegSelector({
+  planItemId,
+  targetGrams,
+  selections,
+  allowedVegs,
+  logDate,
+}: Props) {
   const [addingOpen, setAddingOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -29,7 +36,7 @@ export function OpenVegSelector({ planItemId, targetGrams, selections, allowedVe
     // Default grams: remaining budget (or 30 if already at/over target)
     const defaultGrams = remaining > 0 ? Math.min(remaining, 60) : 30;
     startTransition(async () => {
-      await addVegSelection(planItemId, foodId, defaultGrams);
+      await addVegSelection(planItemId, foodId, defaultGrams, logDate);
     });
     setAddingOpen(false);
   };

@@ -11,10 +11,10 @@ export async function logoutAction() {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Auth + date resolution
 // ---------------------------------------------------------------------------
 
-async function requireAuthed(): Promise<{ memberId: string; timezone: string; planVersionId: string }> {
+async function requireAuthed(): Promise<{ memberId: string; timezone: string }> {
   const session = await getSession();
   if (!session) throw new Error('Unauthorized');
 
@@ -25,16 +25,7 @@ async function requireAuthed(): Promise<{ memberId: string; timezone: string; pl
     .eq('id', session.memberId)
     .maybeSingle();
   if (!member) throw new Error('Member not found');
-
-  const { data: pv } = await supabase
-    .from('plan_versions')
-    .select('id')
-    .eq('member_id', member.id)
-    .eq('status', 'active')
-    .maybeSingle();
-  if (!pv) throw new Error('No active plan');
-
-  return { memberId: member.id, timezone: member.timezone, planVersionId: pv.id };
+  return { memberId: member.id, timezone: member.timezone };
 }
 
 function todayInTimezone(tz: string): string {
@@ -46,9 +37,32 @@ function todayInTimezone(tz: string): string {
   }).format(new Date());
 }
 
+// Validate + clamp a client-supplied logDate. Falls back to today in the
+// member's timezone. Never allows future dates (defensive; the UI blocks it too).
+function resolveLogDate(input: string | null | undefined, timezone: string): string {
+  const today = todayInTimezone(timezone);
+  if (!input) return today;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input)) return today;
+  if (input > today) return today; // future → clamp
+  return input;
+}
+
+// Get the plan_version_id to pin to a NEW daily_log. If a daily_log for this
+// date already exists, we reuse its stored plan_version_id (see getOrCreateDailyLog).
+async function getActivePlanVersionId(memberId: string): Promise<string> {
+  const supabase = getServerSupabase();
+  const { data } = await supabase
+    .from('plan_versions')
+    .select('id')
+    .eq('member_id', memberId)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (!data) throw new Error('No active plan version');
+  return data.id;
+}
+
 async function getOrCreateDailyLog(
   memberId: string,
-  planVersionId: string,
   logDate: string
 ): Promise<string> {
   const supabase = getServerSupabase();
@@ -60,6 +74,7 @@ async function getOrCreateDailyLog(
     .maybeSingle();
   if (existing) return existing.id;
 
+  const planVersionId = await getActivePlanVersionId(memberId);
   const { data, error } = await supabase
     .from('daily_logs')
     .insert({ member_id: memberId, plan_version_id: planVersionId, log_date: logDate })
@@ -69,6 +84,13 @@ async function getOrCreateDailyLog(
   return data.id;
 }
 
+// After any action, revalidate both the current-day view and the history dashboard.
+// /today is always live-safe. /progress may or may not be cached; revalidate too.
+function revalidateViews() {
+  revalidatePath('/today');
+  revalidatePath('/progress');
+}
+
 // ---------------------------------------------------------------------------
 // Meal tick
 // ---------------------------------------------------------------------------
@@ -76,11 +98,12 @@ async function getOrCreateDailyLog(
 export async function toggleMealTick(
   planItemId: string,
   currentlyEaten: boolean,
-  chosenFoodId: string | null
+  chosenFoodId: string | null,
+  logDate?: string
 ): Promise<void> {
-  const { memberId, timezone, planVersionId } = await requireAuthed();
-  const logDate = todayInTimezone(timezone);
-  const dailyLogId = await getOrCreateDailyLog(memberId, planVersionId, logDate);
+  const { memberId, timezone } = await requireAuthed();
+  const date = resolveLogDate(logDate, timezone);
+  const dailyLogId = await getOrCreateDailyLog(memberId, date);
 
   const supabase = getServerSupabase();
   const { error } = await supabase.from('meal_ticks').upsert(
@@ -93,17 +116,17 @@ export async function toggleMealTick(
     { onConflict: 'daily_log_id,plan_item_id' }
   );
   if (error) throw error;
-
-  revalidatePath('/today');
+  revalidateViews();
 }
 
 export async function pickAlternate(
   planItemId: string,
-  chosenFoodId: string | null
+  chosenFoodId: string | null,
+  logDate?: string
 ): Promise<void> {
-  const { memberId, timezone, planVersionId } = await requireAuthed();
-  const logDate = todayInTimezone(timezone);
-  const dailyLogId = await getOrCreateDailyLog(memberId, planVersionId, logDate);
+  const { memberId, timezone } = await requireAuthed();
+  const date = resolveLogDate(logDate, timezone);
+  const dailyLogId = await getOrCreateDailyLog(memberId, date);
 
   const supabase = getServerSupabase();
   const { data: existing } = await supabase
@@ -123,19 +146,17 @@ export async function pickAlternate(
     { onConflict: 'daily_log_id,plan_item_id' }
   );
   if (error) throw error;
-
-  revalidatePath('/today');
+  revalidateViews();
 }
 
-// Set the actual grams eaten for a ticked item. Pass null to clear the override
-// (revert to the planned quantity for nutrition calculations).
 export async function setItemQuantity(
   planItemId: string,
-  grams: number | null
+  grams: number | null,
+  logDate?: string
 ): Promise<void> {
-  const { memberId, timezone, planVersionId } = await requireAuthed();
-  const logDate = todayInTimezone(timezone);
-  const dailyLogId = await getOrCreateDailyLog(memberId, planVersionId, logDate);
+  const { memberId, timezone } = await requireAuthed();
+  const date = resolveLogDate(logDate, timezone);
+  const dailyLogId = await getOrCreateDailyLog(memberId, date);
 
   const supabase = getServerSupabase();
   const { data: existing } = await supabase
@@ -149,28 +170,26 @@ export async function setItemQuantity(
     {
       daily_log_id: dailyLogId,
       plan_item_id: planItemId,
-      eaten: existing?.eaten ?? true, // logging a quantity implies eaten
+      eaten: existing?.eaten ?? true,
       chosen_food_id: existing?.chosen_food_id ?? null,
       quantity_eaten_g: grams,
     },
     { onConflict: 'daily_log_id,plan_item_id' }
   );
   if (error) throw error;
-
-  revalidatePath('/today');
+  revalidateViews();
 }
 
 // ---------------------------------------------------------------------------
-// Veg selections (multi-veg picker for open_veg items)
+// Veg selections
 // ---------------------------------------------------------------------------
 
-// Ensures a meal_tick exists for the item; returns its id.
-// If a new tick is created, seeds eaten=true (adding a selection implies eating).
-async function getOrCreateMealTick(planItemId: string): Promise<string> {
-  const { memberId, timezone, planVersionId } = await requireAuthed();
-  const logDate = todayInTimezone(timezone);
-  const dailyLogId = await getOrCreateDailyLog(memberId, planVersionId, logDate);
-
+async function getOrCreateMealTick(
+  planItemId: string,
+  logDate: string,
+  memberId: string
+): Promise<string> {
+  const dailyLogId = await getOrCreateDailyLog(memberId, logDate);
   const supabase = getServerSupabase();
   const { data: existing } = await supabase
     .from('meal_ticks')
@@ -189,7 +208,6 @@ async function getOrCreateMealTick(planItemId: string): Promise<string> {
   return data.id;
 }
 
-// Look up the current content_version for a food so selections stay pinned.
 async function getFoodContentVersion(foodId: string): Promise<number> {
   const supabase = getServerSupabase();
   const { data, error } = await supabase
@@ -204,15 +222,17 @@ async function getFoodContentVersion(foodId: string): Promise<number> {
 export async function addVegSelection(
   planItemId: string,
   foodId: string,
-  grams: number
+  grams: number,
+  logDate?: string
 ): Promise<void> {
   if (!Number.isFinite(grams) || grams <= 0) return;
-  const tickId = await getOrCreateMealTick(planItemId);
+  const { memberId, timezone } = await requireAuthed();
+  const date = resolveLogDate(logDate, timezone);
+  const tickId = await getOrCreateMealTick(planItemId, date, memberId);
   const contentVersion = await getFoodContentVersion(foodId);
 
   const supabase = getServerSupabase();
 
-  // Determine next position for this tick
   const { data: existingSelections } = await supabase
     .from('meal_tick_veg_selections')
     .select('position, food_id')
@@ -220,7 +240,6 @@ export async function addVegSelection(
 
   const existingForFood = (existingSelections ?? []).find((s) => s.food_id === foodId);
   if (existingForFood) {
-    // Already present — update grams instead (idempotent add)
     const { error } = await supabase
       .from('meal_tick_veg_selections')
       .update({ grams })
@@ -239,15 +258,12 @@ export async function addVegSelection(
     if (error) throw error;
   }
 
-  // Adding a selection implies eating — set eaten=true.
   await supabase.from('meal_ticks').update({ eaten: true }).eq('id', tickId);
-
-  revalidatePath('/today');
+  revalidateViews();
 }
 
 export async function updateVegSelection(selectionId: string, grams: number): Promise<void> {
   if (!Number.isFinite(grams) || grams <= 0) {
-    // Zero or negative → treat as removal
     await removeVegSelection(selectionId);
     return;
   }
@@ -258,14 +274,13 @@ export async function updateVegSelection(selectionId: string, grams: number): Pr
     .update({ grams })
     .eq('id', selectionId);
   if (error) throw error;
-  revalidatePath('/today');
+  revalidateViews();
 }
 
 export async function removeVegSelection(selectionId: string): Promise<void> {
   await requireAuthed();
   const supabase = getServerSupabase();
 
-  // Look up parent tick so we can auto-un-tick if we removed the last selection.
   const { data: sel } = await supabase
     .from('meal_tick_veg_selections')
     .select('meal_tick_id')
@@ -285,20 +300,23 @@ export async function removeVegSelection(selectionId: string): Promise<void> {
     }
   }
 
-  revalidatePath('/today');
+  revalidateViews();
 }
 
-// Mark every plan_item in the given meal slot as eaten with each item's
-// resolved default food. Skips items that need an open_veg pick — those
-// must be chosen explicitly first (nutrition would be zero otherwise).
-export async function markSlotEaten(mealSlotId: string): Promise<{ skippedOpenVeg: number }> {
-  const { memberId, timezone, planVersionId } = await requireAuthed();
-  const logDate = todayInTimezone(timezone);
-  const dailyLogId = await getOrCreateDailyLog(memberId, planVersionId, logDate);
+// ---------------------------------------------------------------------------
+// Mark all in a slot
+// ---------------------------------------------------------------------------
+
+export async function markSlotEaten(
+  mealSlotId: string,
+  logDate?: string
+): Promise<{ skippedOpenVeg: number }> {
+  const { memberId, timezone } = await requireAuthed();
+  const date = resolveLogDate(logDate, timezone);
+  const dailyLogId = await getOrCreateDailyLog(memberId, date);
 
   const supabase = getServerSupabase();
 
-  // Pull items in this slot + their alternates + any existing ticks
   const { data: items, error: itemsErr } = await supabase
     .from('plan_items')
     .select(
@@ -330,7 +348,6 @@ export async function markSlotEaten(mealSlotId: string): Promise<{ skippedOpenVe
       daily_log_id: string;
     }>).find((t) => t.daily_log_id === dailyLogId);
 
-    // For open_veg items with no chosen food, skip — user must pick.
     if (defaultAlt?.kind === 'open_veg' && !existingTick?.chosen_food_id) {
       skippedOpenVeg++;
       continue;
@@ -351,7 +368,7 @@ export async function markSlotEaten(mealSlotId: string): Promise<{ skippedOpenVe
     if (error) throw error;
   }
 
-  revalidatePath('/today');
+  revalidateViews();
   return { skippedOpenVeg };
 }
 
@@ -361,11 +378,12 @@ export async function markSlotEaten(mealSlotId: string): Promise<{ skippedOpenVe
 
 export async function toggleHabitBoolean(
   habitId: string,
-  currentlyDone: boolean
+  currentlyDone: boolean,
+  logDate?: string
 ): Promise<void> {
-  const { memberId, timezone, planVersionId } = await requireAuthed();
-  const logDate = todayInTimezone(timezone);
-  const dailyLogId = await getOrCreateDailyLog(memberId, planVersionId, logDate);
+  const { memberId, timezone } = await requireAuthed();
+  const date = resolveLogDate(logDate, timezone);
+  const dailyLogId = await getOrCreateDailyLog(memberId, date);
 
   const supabase = getServerSupabase();
   const { error } = await supabase.from('habit_ticks').upsert(
@@ -373,19 +391,19 @@ export async function toggleHabitBoolean(
     { onConflict: 'daily_log_id,plan_habit_id' }
   );
   if (error) throw error;
-
-  revalidatePath('/today');
+  revalidateViews();
 }
 
 export async function setHabitNumeric(
   habitId: string,
   value: number,
   valueUnit: string,
-  targetValue: number
+  targetValue: number,
+  logDate?: string
 ): Promise<void> {
-  const { memberId, timezone, planVersionId } = await requireAuthed();
-  const logDate = todayInTimezone(timezone);
-  const dailyLogId = await getOrCreateDailyLog(memberId, planVersionId, logDate);
+  const { memberId, timezone } = await requireAuthed();
+  const date = resolveLogDate(logDate, timezone);
+  const dailyLogId = await getOrCreateDailyLog(memberId, date);
 
   const supabase = getServerSupabase();
   const { error } = await supabase.from('habit_ticks').upsert(
@@ -399,6 +417,5 @@ export async function setHabitNumeric(
     { onConflict: 'daily_log_id,plan_habit_id' }
   );
   if (error) throw error;
-
-  revalidatePath('/today');
+  revalidateViews();
 }

@@ -9,9 +9,11 @@ import { setHabitNumeric, toggleHabitBoolean } from './actions';
 export function HabitRow({
   habit,
   weightKg,
+  logDate,
 }: {
   habit: Habit;
   weightKg: number | null;
+  logDate: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [inputValue, setInputValue] = useState<string>(
@@ -34,7 +36,7 @@ export function HabitRow({
   const handleToggle = () => {
     startTransition(async () => {
       setOptimisticDone(!serverDone);
-      await toggleHabitBoolean(habit.id, serverDone);
+      await toggleHabitBoolean(habit.id, serverDone, logDate);
     });
   };
 
@@ -46,7 +48,8 @@ export function HabitRow({
         habit.id,
         v,
         habit.targetUnit ?? '',
-        habit.targetValue ?? 0
+        habit.targetValue ?? 0,
+        logDate
       );
     });
   };
@@ -60,7 +63,8 @@ export function HabitRow({
         habit.id,
         next,
         habit.targetUnit ?? '',
-        habit.targetValue ?? 0
+        habit.targetValue ?? 0,
+        logDate
       );
     });
   };
