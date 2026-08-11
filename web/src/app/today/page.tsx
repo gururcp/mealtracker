@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { LineChart, Scale } from 'lucide-react';
 import { getSession } from '@/lib/session';
 import { getPlanForDate, type MealSlot, type TodayPlan } from '@/lib/plan';
+import { getProgress, summariseDays } from '@/lib/progress';
 import {
   addNutrition,
   computeItemNutrition,
@@ -81,6 +82,18 @@ export default async function TodayPage({
   const dayPlannedTotals = computeDayPlannedTotals(plan.slots, plan.allowedVegs);
   const stepsToday = getStepsTodayFromHabits(plan.habits);
 
+  // Rolling-average forecast — only bother computing this for today's view;
+  // historical days show today-only forecast (or none, since ForecastCard is
+  // hidden on past days).
+  let rollingAvgDeficit: number | null = null;
+  let rollingDaysWithData = 0;
+  if (isToday) {
+    const progress = await getProgress(session.memberId, 7);
+    const avgs = summariseDays(progress.days);
+    rollingDaysWithData = avgs.daysWithData;
+    if (avgs.daysWithData >= 2) rollingAvgDeficit = avgs.avgDeficit;
+  }
+
   return (
     <main className="min-h-dvh bg-background pb-16">
       {/* Sticky header + date nav */}
@@ -149,6 +162,8 @@ export default async function TodayPage({
             bmrKcal={plan.member.latestBmrKcal}
             weightKg={plan.member.latestWeightKg}
             stepsToday={stepsToday}
+            avgDeficitKcal={rollingAvgDeficit}
+            daysWithData={rollingDaysWithData}
           />
         )}
 

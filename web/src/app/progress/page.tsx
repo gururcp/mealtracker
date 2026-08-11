@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Flame, Scale } from 'lucide-react';
 import { getSession } from '@/lib/session';
-import { getProgress, type DaySummary } from '@/lib/progress';
+import { getProgress, summariseDays, type DaySummary } from '@/lib/progress';
 import { BarChart, type BarPoint } from './bar-chart';
 import { LineChart } from './line-chart';
 
@@ -30,7 +30,7 @@ export default async function ProgressPage({
   const deficitPoints = toDeficitBars(data.days, data.member.timezone);
   const itemsPoints = toItemsBars(data.days, data.member.timezone);
 
-  const weekAvgs = summarise(data.days);
+  const weekAvgs = summariseDays(data.days);
 
   return (
     <main className="min-h-dvh bg-background pb-16">
@@ -62,7 +62,7 @@ export default async function ProgressPage({
               Last {range} days
             </p>
             <p className="text-xs text-muted-foreground tabular-nums">
-              {weekAvgs.daysWithData} of {range} logged
+              {weekAvgs.daysWithData} of {range} logged · avg {Math.round(weekAvgs.avgKcalEaten)}/{Math.round(weekAvgs.avgKcalPlanned)} kcal
             </p>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
@@ -75,7 +75,7 @@ export default async function ProgressPage({
             <SummaryTile
               label="Weight change"
               value={formatWeightDelta(weekAvgs.weightDeltaKg)}
-              unit={weekAvgs.weightDeltaKg != null ? '' : ''}
+              unit=""
               tone={
                 weekAvgs.weightDeltaKg == null
                   ? 'neutral'
@@ -96,7 +96,7 @@ export default async function ProgressPage({
         {/* Kcal chart */}
         <ChartCard
           title="Kcal eaten"
-          subtitle={`vs planned (dashed) · avg ${Math.round(weekAvgs.avgEaten)} of ${Math.round(weekAvgs.avgPlanned)}`}
+          subtitle={`vs planned (dashed) · avg ${Math.round(weekAvgs.avgKcalEaten)} of ${Math.round(weekAvgs.avgKcalPlanned)}`}
         >
           <BarChart
             points={kcalPoints}
@@ -162,44 +162,6 @@ export default async function ProgressPage({
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-type WeekAvgs = {
-  avgEaten: number;
-  avgPlanned: number;
-  avgDeficit: number;
-  avgAdherencePct: number;
-  weightDeltaKg: number | null; // first-to-last, null if <2 readings
-  daysWithData: number;
-};
-
-function summarise(days: DaySummary[]): WeekAvgs {
-  const dataDays = days.filter((d) => d.itemsDone > 0);
-  const n = Math.max(1, dataDays.length);
-  const avgEaten = dataDays.reduce((s, d) => s + d.kcalEaten, 0) / n;
-  const avgPlanned = dataDays.reduce((s, d) => s + d.kcalPlanned, 0) / Math.max(1, days.length);
-  const avgDeficit = dataDays.reduce((s, d) => s + d.netDeficit, 0) / n;
-  const avgAdherencePct =
-    (dataDays.reduce(
-      (s, d) => s + (d.itemsTotal > 0 ? (d.itemsDone / d.itemsTotal) * 100 : 0),
-      0
-    ) /
-      n) || 0;
-
-  const withWeight = days.filter((d) => d.weightKg != null);
-  let weightDeltaKg: number | null = null;
-  if (withWeight.length >= 2) {
-    weightDeltaKg = withWeight[withWeight.length - 1].weightKg! - withWeight[0].weightKg!;
-  }
-
-  return {
-    avgEaten,
-    avgPlanned,
-    avgDeficit,
-    avgAdherencePct,
-    weightDeltaKg,
-    daysWithData: dataDays.length,
-  };
-}
 
 function formatWeightDelta(kg: number | null): string {
   if (kg == null) return '—';

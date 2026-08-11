@@ -42,6 +42,49 @@ export type ProgressData = {
   weightSeries: Array<{ date: string; weightKg: number }>; // last 90 days
 };
 
+export type ProgressAverages = {
+  daysWithData: number;
+  avgKcalEaten: number;
+  avgKcalPlanned: number;
+  avgKcalBurnt: number;
+  avgDeficit: number;              // burnt − eaten. positive = deficit.
+  avgAdherencePct: number;         // items ticked / total, avg of days-with-data
+  weightDeltaKg: number | null;    // first-to-last weighing in the window
+};
+
+// Reduce day rollups into single-number averages.
+// Only counts days where the member logged at least one item — otherwise "0
+// kcal eaten" would drag the mean far below reality on empty days.
+export function summariseDays(days: DaySummary[]): ProgressAverages {
+  const active = days.filter((d) => d.itemsDone > 0);
+  const n = Math.max(1, active.length);
+  const avgEaten = active.reduce((s, d) => s + d.kcalEaten, 0) / n;
+  const avgPlanned = days.reduce((s, d) => s + d.kcalPlanned, 0) / Math.max(1, days.length);
+  const avgBurnt = active.reduce((s, d) => s + d.kcalBurntTotal, 0) / n;
+  const avgDeficit = active.reduce((s, d) => s + d.netDeficit, 0) / n;
+  const avgAdherencePct =
+    (active.reduce(
+      (s, d) => s + (d.itemsTotal > 0 ? (d.itemsDone / d.itemsTotal) * 100 : 0),
+      0
+    ) / n) || 0;
+
+  const withWeight = days.filter((d) => d.weightKg != null);
+  let weightDeltaKg: number | null = null;
+  if (withWeight.length >= 2) {
+    weightDeltaKg = withWeight[withWeight.length - 1].weightKg! - withWeight[0].weightKg!;
+  }
+
+  return {
+    daysWithData: active.length,
+    avgKcalEaten: avgEaten,
+    avgKcalPlanned: avgPlanned,
+    avgKcalBurnt: avgBurnt,
+    avgDeficit,
+    avgAdherencePct,
+    weightDeltaKg,
+  };
+}
+
 function todayInTimezone(tz: string): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: tz,

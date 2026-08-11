@@ -10,9 +10,22 @@ type Props = {
   bmrKcal: number | null;
   weightKg: number | null;
   stepsToday: number | null;
+
+  // Rolling averages (last N days where the member logged at least one item).
+  // When daysWithData >= 2 we use these for the weekly projection; today's
+  // numbers become the secondary line. When < 2 we fall back to today only.
+  avgDeficitKcal?: number | null;
+  daysWithData?: number;
 };
 
-export function ForecastCard({ consumedKcal, bmrKcal, weightKg, stepsToday }: Props) {
+export function ForecastCard({
+  consumedKcal,
+  bmrKcal,
+  weightKg,
+  stepsToday,
+  avgDeficitKcal,
+  daysWithData,
+}: Props) {
   if (bmrKcal == null || weightKg == null) {
     return (
       <section className="rounded-3xl border bg-card p-5">
@@ -29,19 +42,27 @@ export function ForecastCard({ consumedKcal, bmrKcal, weightKg, stepsToday }: Pr
     );
   }
 
-  const sedentaryBurn = Math.round(bmrKcal * SEDENTARY_ACTIVITY_FACTOR);
-  const walkingBurn =
+  // Today's snapshot ------------------------------------------------------
+  const todaySedentaryBurn = Math.round(bmrKcal * SEDENTARY_ACTIVITY_FACTOR);
+  const todayWalkingBurn =
     stepsToday != null && stepsToday > 0
       ? Math.round(stepsToday * KCAL_PER_STEP_PER_KG * weightKg)
       : 0;
-  const totalBurn = sedentaryBurn + walkingBurn;
-  const net = totalBurn - consumedKcal;
-  const weeklyDeltaGrams = Math.round((net * 7 * 1000) / KCAL_PER_KG_BODY_FAT);
-  const isDeficit = net > 0;
+  const todayTotalBurn = todaySedentaryBurn + todayWalkingBurn;
+  const todayNet = todayTotalBurn - consumedKcal;
+
+  // Rolling window (preferred for the weekly projection) ------------------
+  const useAvg = avgDeficitKcal != null && (daysWithData ?? 0) >= 2;
+  const hero = useAvg
+    ? { deficit: avgDeficitKcal!, label: `${daysWithData}-day average` }
+    : { deficit: todayNet, label: "Today's pattern" };
+
+  const weeklyDeltaGrams = Math.round((hero.deficit * 7 * 1000) / KCAL_PER_KG_BODY_FAT);
+  const isDeficit = hero.deficit > 0;
 
   return (
     <section className="rounded-3xl border bg-card overflow-hidden">
-      {/* Colored top strip — colour matches deficit/surplus state */}
+      {/* Colored top strip */}
       <div
         className={cn(
           'px-5 pt-5 pb-4',
@@ -65,7 +86,7 @@ export function ForecastCard({ consumedKcal, bmrKcal, weightKg, stepsToday }: Pr
             <div>
               <p className="text-base font-medium leading-tight">Progress forecast</p>
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest mt-0.5">
-                Today's pattern
+                {hero.label}
               </p>
             </div>
           </div>
@@ -88,21 +109,33 @@ export function ForecastCard({ consumedKcal, bmrKcal, weightKg, stepsToday }: Pr
             )}
           >
             {isDeficit ? '−' : '+'}
-            {Math.abs(net)}
+            {Math.abs(Math.round(hero.deficit))}
           </span>
           <span className="text-sm text-muted-foreground">
-            kcal {isDeficit ? 'deficit' : 'surplus'} today
+            kcal {isDeficit ? 'deficit' : 'surplus'} / day
           </span>
         </div>
       </div>
 
-      {/* Flow breakdown */}
+      {/* Today's snapshot — always shown for immediate feedback */}
       <div className="px-5 py-3 space-y-2 text-sm border-t">
-        <FlowRow label="Eaten today" value={consumedKcal} direction="in" />
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Today so far
+          </p>
+          <p className="text-[11px] font-medium tabular-nums">
+            <span className={cn(todayNet >= 0 ? 'text-emerald-700' : 'text-red-700')}>
+              {todayNet >= 0 ? '−' : '+'}
+              {Math.abs(todayNet)}
+            </span>
+            <span className="text-muted-foreground ml-1">kcal</span>
+          </p>
+        </div>
+        <FlowRow label="Eaten" value={consumedKcal} direction="in" />
         <FlowRow
           label="Burnt · basal"
-          sub={`BMR ${Math.round(bmrKcal)} kcal × 1.2`}
-          value={sedentaryBurn}
+          sub={`BMR ${Math.round(bmrKcal)} × 1.2`}
+          value={todaySedentaryBurn}
           direction="out"
         />
         <FlowRow
@@ -110,18 +143,20 @@ export function ForecastCard({ consumedKcal, bmrKcal, weightKg, stepsToday }: Pr
           sub={
             stepsToday && stepsToday > 0
               ? `${Math.round(stepsToday).toLocaleString()} steps`
-              : 'log steps to include'
+              : 'no steps logged yet'
           }
-          value={walkingBurn}
+          value={todayWalkingBurn}
           direction="out"
         />
       </div>
 
-      <p className="px-5 pb-4 flex items-start gap-1.5 text-[12px] text-muted-foreground">
+      <p className="px-5 pb-4 flex items-start gap-1.5 text-[12px] text-muted-foreground border-t pt-3">
         <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
         <span>
-          Rough estimate. Assumes ~7,700 kcal per kg body fat. Accuracy improves once we have a
-          full week of logs.
+          {useAvg
+            ? `Weekly projection uses the average of the last ${daysWithData} logged days — improves as more days are logged.`
+            : 'Weekly projection uses today only for now. Log meals + steps for a few days and it will average over that window automatically.'}{' '}
+          Assumes ~7,700 kcal per kg body fat.
         </span>
       </p>
     </section>
